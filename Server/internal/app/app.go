@@ -6,17 +6,17 @@ import (
 	"net/http"
 	"time"
 
-		"github.com/gorilla/sessions"
-		"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/gorilla/sessions"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	authinterface "github.com/inzarubin80/Server/internal/app/authinterface"
 	appHttp "github.com/inzarubin80/Server/internal/app/http"
 	middleware "github.com/inzarubin80/Server/internal/app/http/middleware"
-		tokenservice "github.com/inzarubin80/Server/internal/app/token_service"
+	tokenservice "github.com/inzarubin80/Server/internal/app/token_service"
 	ws "github.com/inzarubin80/Server/internal/app/ws"
-		"github.com/inzarubin80/Server/internal/model"
-		"github.com/inzarubin80/Server/internal/repository"
-		service "github.com/inzarubin80/Server/internal/service"
+	"github.com/inzarubin80/Server/internal/model"
+	"github.com/inzarubin80/Server/internal/repository"
+	service "github.com/inzarubin80/Server/internal/service"
 
 	//"github.com/rs/cors"
 	"golang.org/x/oauth2"
@@ -51,7 +51,11 @@ type (
 // repoAdapter provides stub implementations for methods not needed by the exchange/login flow.
 type repoAdapter struct{ *repository.Repository }
 
-func (r *repoAdapter) AddPokerUser(ctx context.Context, pokerID model.PokerID, userID model.UserID) error { return nil }
+// Provide stubs for unused methods to satisfy service.Repository
+func (r *repoAdapter) AddPokerUser(ctx context.Context, pokerID model.PokerID, userID model.UserID) error {
+	return nil
+}
+
 func (r *repoAdapter) GetUserIDsByPokerID(ctx context.Context, pokerID model.PokerID) ([]model.UserID, error) {
 	return []model.UserID{}, nil
 }
@@ -63,7 +67,9 @@ func (h *hubAdapter) AddMessage(pokerID model.PokerID, payload any) error { retu
 func (h *hubAdapter) AddMessageForUser(pokerID model.PokerID, userID model.UserID, payload any) error {
 	return nil
 }
-func (h *hubAdapter) GetActiveUsersID(pokerID model.PokerID) ([]model.UserID, error) { return []model.UserID{}, nil }
+func (h *hubAdapter) GetActiveUsersID(pokerID model.PokerID) ([]model.UserID, error) {
+	return []model.UserID{}, nil
+}
 
 func (a *App) ListenAndServe() error {
 	go a.hub.Run()
@@ -72,7 +78,7 @@ func (a *App) ListenAndServe() error {
 	a.mux.Handle(a.config.path.session, appHttp.NewGetSessionHandler(a.store, a.config.path.session))
 	a.mux.Handle(a.config.path.getProviders, appHttp.NewProvadersHandler(a.provadersConf, a.config.path.getProviders))
 	a.mux.Handle(a.config.path.login, appHttp.NewLoginHandler(a.provadersConf, a.config.path.login, a.store))
-		a.mux.Handle(a.config.path.exchange, appHttp.NewExchangeHandler(a.store, a.config.path.exchange, a.pokerService))
+	a.mux.Handle(a.config.path.exchange, appHttp.NewExchangeHandler(a.store, a.config.path.exchange, a.pokerService))
 	fmt.Println("start server")
 
 	return a.server.ListenAndServe()
@@ -86,23 +92,23 @@ func NewApp(ctx context.Context, config config, dbConn *pgxpool.Pool) (*App, err
 		store = sessions.NewCookieStore([]byte(config.sectrets.storeSecret))
 	)
 
-		// Build repository
-		repo := repository.NewPokerRepository(dbConn)
+	// Build repository
+	repo := repository.NewPokerRepository(dbConn)
 
-		// Build token services
-		accessTokenService := tokenservice.NewtokenService([]byte(config.sectrets.accessTokenSecret), 30*time.Minute, model.Access_Token_Type)
-		refreshTokenService := tokenservice.NewtokenService([]byte(config.sectrets.refreshTokenSecret), 30*24*time.Hour, model.Refresh_Token_Type)
+	// Build token services
+	accessTokenService := tokenservice.NewtokenService([]byte(config.sectrets.accessTokenSecret), 30*time.Minute, model.Access_Token_Type)
+	refreshTokenService := tokenservice.NewtokenService([]byte(config.sectrets.refreshTokenSecret), 30*24*time.Hour, model.Refresh_Token_Type)
 
-		// Build providers user data map from config
-		providersMap := make(authinterface.ProvidersUserData)
-		for key, prov := range config.provadersConf {
-			if prov != nil && prov.ProviderUserData != nil {
-				providersMap[key] = prov.ProviderUserData
-			}
+	// Build providers user data map from config
+	providersMap := make(authinterface.ProvidersUserData)
+	for key, prov := range config.provadersConf {
+		if prov != nil && prov.ProviderUserData != nil {
+			providersMap[key] = prov.ProviderUserData
 		}
+	}
 
-		// Build service
-		pokerService := service.NewPokerService(&repoAdapter{Repository: repo}, &hubAdapter{Hub: hub}, accessTokenService, refreshTokenService, providersMap)
+	// Build service
+	pokerService := service.NewPokerService(&repoAdapter{Repository: repo}, &hubAdapter{Hub: hub}, accessTokenService, refreshTokenService, providersMap)
 
 	/*
 		// Создаем CORS middleware

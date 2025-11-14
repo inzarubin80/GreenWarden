@@ -24,10 +24,8 @@ type (
 		CreateUser(ctx context.Context, userData *model.UserProfileFromProvider) (*model.User, error)
 		GetUsersByIDs(ctx context.Context, userIDs []model.UserID) ([]*model.User, error)
 		GetUserIDsByPokerID(ctx context.Context, pokerID model.PokerID) ([]model.UserID, error)
-		AddPokerUser(ctx context.Context, pokerID model.PokerID, userID model.UserID) error
 		SetUserName(ctx context.Context, userID model.UserID, name string) error
 		GetUser(ctx context.Context, userID model.UserID) (*model.User, error)
-		SetUserSettings(ctx context.Context, userID model.UserID, userSettings *model.UserSettings) error
 	}
 
 	TokenService interface {

@@ -32,8 +32,3 @@ func (s *PokerService) GetUser(ctx context.Context, userID model.UserID) (*model
 
 }
 
-func (s *PokerService) SetUserSettings(ctx context.Context, userID model.UserID, userSettings *model.UserSettings) error {
-
-	return s.repository.SetUserSettings(ctx, userID, userSettings)
-
-}

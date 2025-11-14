@@ -38,19 +38,7 @@ func (r *Repository) SetUserName(ctx context.Context, userID model.UserID, name 
 
 }
 
-func (r *Repository) SetUserSettings(ctx context.Context, userID model.UserID, userSettings *model.UserSettings) error {
 
-	arg := &sqlc_repository.UpsertUserSettingsParams{
-		UserID:             int64(userID),
-		EvaluationStrategy: userSettings.EvaluationStrategy,
-		MaximumScore:       int32(userSettings.MaximumScore),
-	}
-
-	reposqlsc := sqlc_repository.New(r.conn)
-	_, err := reposqlsc.UpsertUserSettings(ctx, arg)
-	return err
-
-}
 
 func (r *Repository) GetUser(ctx context.Context, userID model.UserID) (*model.User, error) {
 
