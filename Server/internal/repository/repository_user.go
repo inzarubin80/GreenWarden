@@ -87,3 +87,4 @@ func (r *Repository) GetUsersByIDs(ctx context.Context, userIDs []model.UserID) 
 	return usersRes, nil
 
 }
+

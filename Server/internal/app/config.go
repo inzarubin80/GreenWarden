@@ -17,11 +17,11 @@ type (
 		Addr string
 	}
 	path struct {
-			index, getPoker, createPoker, createTask,
+		index, getPoker, createPoker, createTask,
 		getTasks, getTask, updateTask, deleteTask,
-			getComents, addComent, setVotingTask,
-			getVotingControlState, ws, login, exchange, session, refreshToken, logOut, getProviders,
-			ping, vote, getUserEstimates, setVotingControlState, setUserName, getUser, setUserSettings, getLastSession, deletePoker string
+		getComents, addComent, setVotingTask,
+		getVotingControlState, ws, login, exchange, createViolation, session, refreshToken, logOut, getProviders,
+		ping, vote, getUserEstimates, setVotingControlState, setUserName, getUser, setUserSettings, getLastSession, deletePoker string
 	}
 
 	sectrets struct {
@@ -48,7 +48,7 @@ func NewConfig(opts Options) config {
 		Oauth2Config: &oauth2.Config{
 			ClientID:     os.Getenv("CLIENT_ID_YANDEX"),
 			ClientSecret: os.Getenv("CLIENT_SECRET_YANDEX"),
-			RedirectURL: "warden://auth/callback?provider=yandex",
+			RedirectURL:  "warden://auth/callback?provider=yandex",
 			Scopes:       []string{"login:info"},
 			Endpoint:     yandex.Endpoint,
 		},
@@ -101,6 +101,7 @@ func NewConfig(opts Options) config {
 
 			login:           "POST	/api/user/login",
 			exchange:        "POST	/api/user/exchange",
+			createViolation: "POST	/api/violations",
 			setUserName:     "POST	/api/user/name",
 			setUserSettings: "POST	/api/user/settings",
 
@@ -120,7 +121,7 @@ func NewConfig(opts Options) config {
 		},
 
 		provadersConf: provaders,
-		tlsEnabled:   true,
+		tlsEnabled:    true,
 		tlsCertFile:   os.Getenv("TLS_CERT_FILE"),
 		tlsKeyFile:    os.Getenv("TLS_KEY_FILE"),
 	}

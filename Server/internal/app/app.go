@@ -48,18 +48,6 @@ type (
 	}
 )
 
-// repoAdapter provides stub implementations for methods not needed by the exchange/login flow.
-type repoAdapter struct{ *repository.Repository }
-
-// Provide stubs for unused methods to satisfy service.Repository
-func (r *repoAdapter) AddPokerUser(ctx context.Context, pokerID model.PokerID, userID model.UserID) error {
-	return nil
-}
-
-func (r *repoAdapter) GetUserIDsByPokerID(ctx context.Context, pokerID model.PokerID) ([]model.UserID, error) {
-	return []model.UserID{}, nil
-}
-
 // hubAdapter provides no-op implementations to satisfy the service.Hub interface.
 type hubAdapter struct{ *ws.Hub }
 
@@ -79,6 +67,7 @@ func (a *App) ListenAndServe() error {
 	a.mux.Handle(a.config.path.getProviders, appHttp.NewProvadersHandler(a.provadersConf, a.config.path.getProviders))
 	a.mux.Handle(a.config.path.login, appHttp.NewLoginHandler(a.provadersConf, a.config.path.login, a.store))
 	a.mux.Handle(a.config.path.exchange, appHttp.NewExchangeHandler(a.store, a.config.path.exchange, a.pokerService))
+	a.mux.Handle(a.config.path.createViolation, middleware.NewAuthMiddleware(appHttp.NewCreateViolationHandler(a.store, a.config.path.createViolation, a.pokerService), a.store, a.pokerService))
 	fmt.Println("start server")
 
 	return a.server.ListenAndServe()
@@ -108,7 +97,7 @@ func NewApp(ctx context.Context, config config, dbConn *pgxpool.Pool) (*App, err
 	}
 
 	// Build service
-	pokerService := service.NewPokerService(&repoAdapter{Repository: repo}, &hubAdapter{Hub: hub}, accessTokenService, refreshTokenService, providersMap)
+	pokerService := service.NewPokerService(repo, &hubAdapter{Hub: hub}, accessTokenService, refreshTokenService, providersMap)
 
 	/*
 		// Создаем CORS middleware

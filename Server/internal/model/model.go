@@ -1,7 +1,7 @@
 package model
 
 import (
-
+	"time"
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -13,6 +13,11 @@ const (
 )
 
 type (
+	ViolationID string
+
+	ViolationType   string
+	ViolationStatus string
+
 	TaskID     int64
 	PokerID    string
 	UserID     int64
@@ -35,6 +40,19 @@ type (
 		Name               string
 		EvaluationStrategy string
 		MaximumScore       int
+	}
+
+	Violation struct {
+		ID                  ViolationID     `json:"id"`
+		UserID              UserID          `json:"user_id"`
+		Type                ViolationType   `json:"type"`
+		Description         string          `json:"description"`
+		Lat                 float64         `json:"lat"`
+		Lng                 float64         `json:"lng"`
+		Status              ViolationStatus `json:"status"`
+		ConfirmationsCount  int             `json:"confirmations_count"`
+		CreatedAt           time.Time       `json:"created_at"`
+		UpdatedAt           time.Time       `json:"updated_at"`
 	}
 
 	LastSessionPoker struct {
