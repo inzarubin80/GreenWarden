@@ -13,7 +13,7 @@ import (
 
 type (
 	serviceLogin interface {
-		Login(ctx context.Context, providerKey string, authorizationCode string) (*model.AuthData, error)
+		Login(ctx context.Context, providerKey string, authorizationCode string, codeVerifier string) (*model.AuthData, error)
 	}
 
 	ExchangeHandler struct {
@@ -36,6 +36,8 @@ func (h *ExchangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type request struct {
 		Provider string `json:"provider"`
 		Code     string `json:"code"`
+		CodeVerifier string `json:"code_verifier"`
+		State    string `json:"state"`
 	}
 
 	var req request
@@ -48,7 +50,7 @@ func (h *ExchangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authData, err := h.service.Login(r.Context(), req.Provider, req.Code)
+	authData, err := h.service.Login(r.Context(), req.Provider, req.Code, req.CodeVerifier)
 	if err != nil {
 		uhttp.SendErrorResponse(w, http.StatusUnauthorized, err.Error())
 		return

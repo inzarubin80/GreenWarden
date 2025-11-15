@@ -15,7 +15,7 @@ type (
 	}
 
 	ProviderUserData interface {
-		GetUserData(ctx context.Context, authorizationCode string) (*model.UserProfileFromProvider, error)
+		GetUserData(ctx context.Context, authorizationCode string, codeVerifier string) (*model.UserProfileFromProvider, error)
 	}
 
 	ProvidersUserData map[string]ProviderUserData

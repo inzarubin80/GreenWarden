@@ -8,7 +8,7 @@ import (
 	"github.com/inzarubin80/Server/internal/model"
 )
 
-func (s *PokerService) Login(ctx context.Context, providerKey string, authorizationCode string) (*model.AuthData, error) {
+func (s *PokerService) Login(ctx context.Context, providerKey string, authorizationCode string, codeVerifier string) (*model.AuthData, error) {
 
 	provider, ok := s.providersUserData[providerKey]
 
@@ -16,7 +16,7 @@ func (s *PokerService) Login(ctx context.Context, providerKey string, authorizat
 		return nil, fmt.Errorf("provider not found")
 	}
 
-	userProfileFromProvider, err := provider.GetUserData(ctx, authorizationCode)
+	userProfileFromProvider, err := provider.GetUserData(ctx, authorizationCode, codeVerifier)
 	if err != nil {
 		return nil, err
 	}

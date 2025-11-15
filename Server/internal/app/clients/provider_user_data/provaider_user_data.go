@@ -22,14 +22,20 @@ func NewProviderUserData(url string, oauthConfig *oauth2.Config, provider string
 	}
 }
 
-func (p *ProviderUserData) GetUserData(ctx context.Context, authorizationCode string) (*model.UserProfileFromProvider, error) {
+func (p *ProviderUserData) GetUserData(ctx context.Context, authorizationCode string, codeVerifier string) (*model.UserProfileFromProvider, error) {
 
-	token, err := p.oauthConfig.Exchange(context.Background(), authorizationCode)
+	var token *oauth2.Token
+	var err error
+	if codeVerifier != "" {
+		token, err = p.oauthConfig.Exchange(ctx, authorizationCode, oauth2.SetAuthURLParam("code_verifier", codeVerifier))
+	} else {
+		token, err = p.oauthConfig.Exchange(ctx, authorizationCode)
+	}
 	if err != nil {
 		return nil, err
 	}
 
-	client := p.oauthConfig.Client(context.Background(), token)
+	client := p.oauthConfig.Client(ctx, token)
 	response, err := client.Get(p.url)
 	if err != nil {
 		return nil, err
