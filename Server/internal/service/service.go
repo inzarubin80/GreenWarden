@@ -23,8 +23,9 @@ type (
 		AddUserAuthProviders(ctx context.Context, userProfileFromProvide *model.UserProfileFromProvider, userID model.UserID) (*model.UserAuthProviders, error)
 		CreateUser(ctx context.Context, userData *model.UserProfileFromProvider) (*model.User, error)
 		GetUsersByIDs(ctx context.Context, userIDs []model.UserID) ([]*model.User, error)
-			SetUserName(ctx context.Context, userID model.UserID, name string) error
-			CreateViolation(ctx context.Context, userID model.UserID, vType model.ViolationType, description string, lat, lng float64) (*model.Violation, error)
+		SetUserName(ctx context.Context, userID model.UserID, name string) error
+		CreateViolation(ctx context.Context, userID model.UserID, vType model.ViolationType, description string, lat, lng float64) (*model.Violation, error)
+		AddViolationPhoto(ctx context.Context, violationID string, url string, thumbURL string) (*model.ViolationPhoto, error)
 		GetUser(ctx context.Context, userID model.UserID) (*model.User, error)
 	}
 
@@ -33,7 +34,7 @@ type (
 		ValidateToken(tokenString string) (*model.Claims, error)
 	}
 
-		ProviderUserData interface{}
+	ProviderUserData interface{}
 
 	Hub interface {
 		AddMessage(pokerID model.PokerID, payload any) error

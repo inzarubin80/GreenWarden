@@ -4,6 +4,10 @@
 
 package sqlc_repository
 
+import (
+	"github.com/jackc/pgx/v5/pgtype"
+)
+
 type User struct {
 	UserID             int64
 	Name               string
@@ -16,4 +20,24 @@ type UserAuthProvider struct {
 	ProviderUid string
 	Provider    string
 	Name        *string
+}
+
+type Violation struct {
+	ID                 pgtype.UUID
+	UserID             int64
+	Type               string
+	Description        *string
+	Lat                float64
+	Lng                float64
+	Status             string
+	ConfirmationsCount int32
+	CreatedAt          pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
+}
+
+type ViolationPhoto struct {
+	ID          pgtype.UUID
+	ViolationID pgtype.UUID
+	Url         string
+	ThumbUrl    *string
 }

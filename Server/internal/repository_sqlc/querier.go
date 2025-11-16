@@ -6,14 +6,21 @@ package sqlc_repository
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
 	AddUserAuthProviders(ctx context.Context, arg *AddUserAuthProvidersParams) (*UserAuthProvider, error)
+	AddViolationPhoto(ctx context.Context, arg *AddViolationPhotoParams) (*ViolationPhoto, error)
 	CreateUser(ctx context.Context, name string) (int64, error)
+	// Violations
+	CreateViolation(ctx context.Context, arg *CreateViolationParams) (*Violation, error)
+	GetPhotosByViolationID(ctx context.Context, violationID pgtype.UUID) ([]*ViolationPhoto, error)
 	GetUserAuthProvidersByProviderUid(ctx context.Context, arg *GetUserAuthProvidersByProviderUidParams) (*UserAuthProvider, error)
 	GetUserByID(ctx context.Context, userID int64) (*User, error)
 	GetUsersByIDs(ctx context.Context, dollar_1 []int64) ([]*User, error)
+	GetViolationByID(ctx context.Context, id pgtype.UUID) (*Violation, error)
 	UpdateUserName(ctx context.Context, arg *UpdateUserNameParams) (*User, error)
 }
 

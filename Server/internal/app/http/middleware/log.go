@@ -18,7 +18,7 @@ func NewLogMux(h http.Handler) http.Handler {
 
 func (m *LogMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-	dumpR, err := httputil.DumpRequest(r, true)
+	dumpR, err := httputil.DumpRequest(r, false)
 
 	if err != nil {
 		fmt.Println("Failed to dump request", err.Error())

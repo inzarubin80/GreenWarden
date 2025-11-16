@@ -28,3 +28,22 @@ VALUES ($1, $2, $3, $4)
 returning *;
 
 
+-- Violations
+
+-- name: CreateViolation :one
+INSERT INTO violations (id, user_id, type, description, lat, lng, status, confirmations_count)
+VALUES ($1, $2, $3, $4, $5, $6, 'new', 0)
+RETURNING *;
+
+-- name: GetViolationByID :one
+SELECT * FROM violations WHERE id = $1;
+
+-- name: AddViolationPhoto :one
+INSERT INTO violation_photos (id, violation_id, url, thumb_url)
+VALUES ($1, $2, $3, $4)
+RETURNING *;
+
+-- name: GetPhotosByViolationID :many
+SELECT * FROM violation_photos WHERE violation_id = $1 ORDER BY id;
+
+

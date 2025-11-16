@@ -51,8 +51,16 @@ type (
 		Lng                 float64         `json:"lng"`
 		Status              ViolationStatus `json:"status"`
 		ConfirmationsCount  int             `json:"confirmations_count"`
+		Photos              []ViolationPhoto `json:"photos,omitempty"`
 		CreatedAt           time.Time       `json:"created_at"`
 		UpdatedAt           time.Time       `json:"updated_at"`
+	}
+
+	ViolationPhoto struct {
+		ID           string `json:"id"`
+		ViolationID  string `json:"violation_id"`
+		URL          string `json:"url"`
+		ThumbnailURL string `json:"thumb_url,omitempty"`
 	}
 
 	LastSessionPoker struct {

@@ -17,6 +17,7 @@ import (
 	"github.com/inzarubin80/Server/internal/model"
 	"github.com/inzarubin80/Server/internal/repository"
 	service "github.com/inzarubin80/Server/internal/service"
+	"github.com/inzarubin80/Server/internal/storage/objectstorage"
 
 	//"github.com/rs/cors"
 	"golang.org/x/oauth2"
@@ -45,6 +46,7 @@ type (
 		oauthConfig   *oauth2.Config
 		store         *sessions.CookieStore
 		provadersConf authinterface.MapProviderOauthConf
+		uploader      *objectstorage.Uploader
 	}
 )
 
@@ -67,7 +69,7 @@ func (a *App) ListenAndServe() error {
 	a.mux.Handle(a.config.path.getProviders, appHttp.NewProvadersHandler(a.provadersConf, a.config.path.getProviders))
 	a.mux.Handle(a.config.path.login, appHttp.NewLoginHandler(a.provadersConf, a.config.path.login, a.store))
 	a.mux.Handle(a.config.path.exchange, appHttp.NewExchangeHandler(a.store, a.config.path.exchange, a.pokerService))
-	a.mux.Handle(a.config.path.createViolation, middleware.NewAuthMiddleware(appHttp.NewCreateViolationHandler(a.store, a.config.path.createViolation, a.pokerService), a.store, a.pokerService))
+	a.mux.Handle(a.config.path.createViolation, middleware.NewAuthMiddleware(appHttp.NewCreateViolationHandler(a.store, a.config.path.createViolation, a.pokerService, a.uploader, a.config.sectrets.maxPhotosPerViolation), a.store, a.pokerService))
 	fmt.Println("start server")
 
 	return a.server.ListenAndServe()
@@ -98,6 +100,19 @@ func NewApp(ctx context.Context, config config, dbConn *pgxpool.Pool) (*App, err
 
 	// Build service
 	pokerService := service.NewPokerService(repo, &hubAdapter{Hub: hub}, accessTokenService, refreshTokenService, providersMap)
+
+	// Build object storage uploader (Yandex Object Storage)
+	uploader, err := objectstorage.NewUploader(
+		config.sectrets.yosEndpoint,
+		config.sectrets.yosAccessKey,
+		config.sectrets.yosSecretKey,
+		config.sectrets.yosBucket,
+		config.sectrets.yosCdnBaseURL,
+		true,
+	)
+	if err != nil {
+		return nil, err
+	}
 
 	/*
 		// Создаем CORS middleware
@@ -132,6 +147,7 @@ func NewApp(ctx context.Context, config config, dbConn *pgxpool.Pool) (*App, err
 		hub:           hub,
 		store:         store,
 		provadersConf: config.provadersConf,
+		uploader:      uploader,
 	}, nil
 
 }

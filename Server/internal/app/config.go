@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	authinterface "github.com/inzarubin80/Server/internal/app/authinterface"
 	providerUserData "github.com/inzarubin80/Server/internal/app/clients/provider_user_data"
@@ -25,9 +26,15 @@ type (
 	}
 
 	sectrets struct {
-		storeSecret        string
-		accessTokenSecret  string
-		refreshTokenSecret string
+		storeSecret           string
+		accessTokenSecret     string
+		refreshTokenSecret    string
+		yosAccessKey          string
+		yosSecretKey          string
+		yosBucket             string
+		yosEndpoint           string
+		yosCdnBaseURL         string
+		maxPhotosPerViolation int
 	}
 
 	config struct {
@@ -118,6 +125,22 @@ func NewConfig(opts Options) config {
 			storeSecret:        os.Getenv("STORE_SECRET"),
 			accessTokenSecret:  os.Getenv("ACCESS_TOKEN_SECRET"),
 			refreshTokenSecret: os.Getenv("REFRESH_TOKEN_SECRET"),
+		
+			yosAccessKey:       os.Getenv("YOS_ACCESS_KEY"),
+			yosSecretKey:       os.Getenv("YOS_SECRET_KEY"),
+			yosBucket:          os.Getenv("YOS_BUCKET"),
+			yosEndpoint:        os.Getenv("YOS_ENDPOINT"),
+			yosCdnBaseURL:      os.Getenv("YOS_CDN_BASE_URL"),
+		
+		
+			maxPhotosPerViolation: func() int {
+				if v := os.Getenv("MAX_PHOTOS_PER_VIOLATION"); v != "" {
+					if n, err := strconv.Atoi(v); err == nil {
+						return n
+					}
+				}
+				return 5
+			}(),
 		},
 
 		provadersConf: provaders,
