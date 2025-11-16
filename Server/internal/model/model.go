@@ -102,6 +102,27 @@ type (
 	
 )
 
+// Filters and pagination DTOs
+type ListViolationsFilters struct {
+	Type    *string
+	Status  *string
+	From    *time.Time
+	To      *time.Time
+	MinLng  *float64
+	MinLat  *float64
+	MaxLng  *float64
+	MaxLat  *float64
+	Page    int
+	PageSize int
+}
+
+type PaginatedViolations struct {
+	Items    []*Violation `json:"items"`
+	Page     int          `json:"page"`
+	PageSize int          `json:"page_size"`
+	Total    int64        `json:"total"`
+}
+
 func (p PokerID) UUID() pgtype.UUID {
 	return pgtype.UUID{
 		Bytes: uuid.MustParse(string(p)),

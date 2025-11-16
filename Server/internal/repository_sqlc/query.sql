@@ -46,4 +46,32 @@ RETURNING *;
 -- name: GetPhotosByViolationID :many
 SELECT * FROM violation_photos WHERE violation_id = $1 ORDER BY id;
 
+-- name: ListViolations :many
+SELECT id, user_id, type, description, lat, lng, status, confirmations_count, created_at, updated_at
+FROM violations
+WHERE
+  ($1::text IS NULL OR type = $1) AND
+  ($2::text IS NULL OR status = $2) AND
+  ($3::timestamptz IS NULL OR created_at >= $3) AND
+  ($4::timestamptz IS NULL OR created_at <= $4) AND
+  (
+    ($5::float8 IS NULL OR $6::float8 IS NULL OR $7::float8 IS NULL OR $8::float8 IS NULL)
+    OR (lng BETWEEN $5 AND $7 AND lat BETWEEN $6 AND $8)
+  )
+ORDER BY created_at DESC
+LIMIT $9 OFFSET $10;
+
+-- name: CountViolations :one
+SELECT count(1)
+FROM violations
+WHERE
+  ($1::text IS NULL OR type = $1) AND
+  ($2::text IS NULL OR status = $2) AND
+  ($3::timestamptz IS NULL OR created_at >= $3) AND
+  ($4::timestamptz IS NULL OR created_at <= $4) AND
+  (
+    ($5::float8 IS NULL OR $6::float8 IS NULL OR $7::float8 IS NULL OR $8::float8 IS NULL)
+    OR (lng BETWEEN $5 AND $7 AND lat BETWEEN $6 AND $8)
+  );
+
 

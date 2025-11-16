@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -9,6 +10,8 @@ import (
 	sqlc_repository "github.com/inzarubin80/Server/internal/repository_sqlc"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+
 
 func (r *Repository) CreateViolation(ctx context.Context, userID model.UserID, vType model.ViolationType, description string, lat, lng float64) (*model.Violation, error) {
 	reposqlsc := sqlc_repository.New(r.conn)
@@ -90,3 +93,95 @@ func (r *Repository) AddViolationPhoto(ctx context.Context, violationID string, 
 		ThumbnailURL: thumb,
 	}, nil
 }
+
+func (r *Repository) ListViolations(ctx context.Context, f *model.ListViolationsFilters) ([]*model.Violation, int64, error) {
+	// Build dynamic SQL to avoid dependency on regenerated sqlc code
+	where := "WHERE 1=1"
+	args := []interface{}{}
+
+	if f.Type != nil && *f.Type != "" {
+		where += " AND type = $" + strconv.Itoa(len(args)+1)
+		args = append(args, *f.Type)
+	}
+	if f.Status != nil && *f.Status != "" {
+		where += " AND status = $" + strconv.Itoa(len(args)+1)
+		args = append(args, *f.Status)
+	}
+	if f.From != nil {
+		where += " AND created_at >= $" + strconv.Itoa(len(args)+1)
+		args = append(args, *f.From)
+	}
+	if f.To != nil {
+		where += " AND created_at <= $" + strconv.Itoa(len(args)+1)
+		args = append(args, *f.To)
+	}
+	if f.MinLng != nil && f.MinLat != nil && f.MaxLng != nil && f.MaxLat != nil {
+		where += " AND lng BETWEEN $" + strconv.Itoa(len(args)+1) + " AND $" + strconv.Itoa(len(args)+2)
+		args = append(args, *f.MinLng, *f.MaxLng)
+		where += " AND lat BETWEEN $" + strconv.Itoa(len(args)+1) + " AND $" + strconv.Itoa(len(args)+2)
+		args = append(args, *f.MinLat, *f.MaxLat)
+	}
+
+	limit := f.PageSize
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	page := f.Page
+	if page <= 0 {
+		page = 1
+	}
+	offset := (page - 1) * limit
+
+	countSQL := "SELECT count(1) FROM violations " + where
+	row := r.conn.QueryRow(ctx, countSQL, args...)
+	var total int64
+	if err := row.Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	listSQL := "SELECT id::text, user_id, type, COALESCE(description,''), lat, lng, status, confirmations_count, created_at, updated_at FROM violations " + where + " ORDER BY created_at DESC LIMIT $" + strconv.Itoa(len(args)+1) + " OFFSET $" + strconv.Itoa(len(args)+2)
+	args = append(args, int32(limit), int32(offset))
+	rows, err := r.conn.Query(ctx, listSQL, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var out []*model.Violation
+	for rows.Next() {
+		var (
+			idStr        string
+			userID       int64
+			vType        string
+			desc         string
+			lat, lng     float64
+			status       string
+			confirmCnt   int32
+			createdAt    time.Time
+			updatedAt    time.Time
+		)
+		if err := rows.Scan(&idStr, &userID, &vType, &desc, &lat, &lng, &status, &confirmCnt, &createdAt, &updatedAt); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, &model.Violation{
+			ID:                 model.ViolationID(idStr),
+			UserID:             model.UserID(userID),
+			Type:               model.ViolationType(vType),
+			Description:        desc,
+			Lat:                lat,
+			Lng:                lng,
+			Status:             model.ViolationStatus(status),
+			ConfirmationsCount: int(confirmCnt),
+			CreatedAt:          createdAt,
+			UpdatedAt:          updatedAt,
+		})
+	}
+	if rows.Err() != nil {
+		return nil, 0, rows.Err()
+	}
+	return out, total, nil
+}
+
