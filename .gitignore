@@ -1,1 +1,49 @@
 .env
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go workspace files
+go.work
+go.work.sum
+
+# Binaries and debug builds
+bin/
+__debug_bin*
+Server/cmd/server/__debug_bin*
+
+# Coverage
+*.cover
+*.coverprofile
+coverage.*
+*.cov
+*.lcov
+
+# Logs
+*.log
+
+# Editor/IDE
+.vscode/
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Env files
+Server/.env
+
+# Local volumes / data
+Server/postgresql_data/
+
+# Node (if present)
+node_modules/
+Server/node_modules/
+
