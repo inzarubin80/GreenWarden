@@ -88,5 +88,3 @@ func (h *ListViolationsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	}
 	uhttp.SendSuccessfulResponse(w, b)
 }
-
-

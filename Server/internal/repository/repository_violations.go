@@ -2,6 +2,9 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -183,5 +186,71 @@ func (r *Repository) ListViolations(ctx context.Context, f *model.ListViolations
 		return nil, 0, rows.Err()
 	}
 	return out, total, nil
+}
+
+func (r *Repository) GetViolationByID(ctx context.Context, id model.ViolationID) (*model.Violation, error) {
+	reposqlsc := sqlc_repository.New(r.conn)
+	
+	violationUUID, err := uuid.Parse(string(id))
+	if err != nil {
+		return nil, fmt.Errorf("invalid violation ID: %w", err)
+	}
+	
+	v, err := reposqlsc.GetViolationByID(ctx, pgtype.UUID{Bytes: violationUUID, Valid: true})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("%w: violation not found", model.ErrorNotFound)
+		}
+		return nil, err
+	}
+	
+	// Get photos for this violation
+	photos, err := reposqlsc.GetPhotosByViolationID(ctx, pgtype.UUID{Bytes: violationUUID, Valid: true})
+	if err != nil {
+		return nil, err
+	}
+	
+	// Map photos
+	violationPhotos := make([]model.ViolationPhoto, 0, len(photos))
+	for _, p := range photos {
+		thumb := ""
+		if p.ThumbUrl != nil {
+			thumb = *p.ThumbUrl
+		}
+		violationPhotos = append(violationPhotos, model.ViolationPhoto{
+			ID:           uuid.UUID(p.ID.Bytes).String(),
+			ViolationID:  uuid.UUID(p.ViolationID.Bytes).String(),
+			URL:          p.Url,
+			ThumbnailURL: thumb,
+		})
+	}
+	
+	createdAt := time.Now()
+	updatedAt := time.Now()
+	if v.CreatedAt.Valid {
+		createdAt = v.CreatedAt.Time
+	}
+	if v.UpdatedAt.Valid {
+		updatedAt = v.UpdatedAt.Time
+	}
+	
+	desc := ""
+	if v.Description != nil {
+		desc = *v.Description
+	}
+	
+	return &model.Violation{
+		ID:                 model.ViolationID(violationUUID.String()),
+		UserID:             model.UserID(v.UserID),
+		Type:               model.ViolationType(v.Type),
+		Description:        desc,
+		Lat:                v.Lat,
+		Lng:                v.Lng,
+		Status:             model.ViolationStatus(v.Status),
+		ConfirmationsCount: int(v.ConfirmationsCount),
+		Photos:             violationPhotos,
+		CreatedAt:          createdAt,
+		UpdatedAt:          updatedAt,
+	}, nil
 }
 

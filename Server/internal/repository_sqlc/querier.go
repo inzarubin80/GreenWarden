@@ -13,6 +13,7 @@ import (
 type Querier interface {
 	AddUserAuthProviders(ctx context.Context, arg *AddUserAuthProvidersParams) (*UserAuthProvider, error)
 	AddViolationPhoto(ctx context.Context, arg *AddViolationPhotoParams) (*ViolationPhoto, error)
+	CountViolations(ctx context.Context, arg *CountViolationsParams) (int64, error)
 	CreateUser(ctx context.Context, name string) (int64, error)
 	// Violations
 	CreateViolation(ctx context.Context, arg *CreateViolationParams) (*Violation, error)
@@ -21,6 +22,7 @@ type Querier interface {
 	GetUserByID(ctx context.Context, userID int64) (*User, error)
 	GetUsersByIDs(ctx context.Context, dollar_1 []int64) ([]*User, error)
 	GetViolationByID(ctx context.Context, id pgtype.UUID) (*Violation, error)
+	ListViolations(ctx context.Context, arg *ListViolationsParams) ([]*Violation, error)
 	UpdateUserName(ctx context.Context, arg *UpdateUserNameParams) (*User, error)
 }
 

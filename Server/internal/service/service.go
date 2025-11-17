@@ -27,6 +27,7 @@ type (
 		CreateViolation(ctx context.Context, userID model.UserID, vType model.ViolationType, description string, lat, lng float64) (*model.Violation, error)
 		AddViolationPhoto(ctx context.Context, violationID string, url string, thumbURL string) (*model.ViolationPhoto, error)
 		ListViolations(ctx context.Context, f *model.ListViolationsFilters) ([]*model.Violation, int64, error)
+		GetViolationByID(ctx context.Context, id model.ViolationID) (*model.Violation, error)
 		GetUser(ctx context.Context, userID model.UserID) (*model.User, error)
 	}
 

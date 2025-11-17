@@ -71,6 +71,47 @@ func (q *Queries) AddViolationPhoto(ctx context.Context, arg *AddViolationPhotoP
 	return &i, err
 }
 
+const countViolations = `-- name: CountViolations :one
+SELECT count(1)
+FROM violations
+WHERE
+  ($1::text IS NULL OR type = $1) AND
+  ($2::text IS NULL OR status = $2) AND
+  ($3::timestamptz IS NULL OR created_at >= $3) AND
+  ($4::timestamptz IS NULL OR created_at <= $4) AND
+  (
+    ($5::float8 IS NULL OR $6::float8 IS NULL OR $7::float8 IS NULL OR $8::float8 IS NULL)
+    OR (lng BETWEEN $5 AND $7 AND lat BETWEEN $6 AND $8)
+  )
+`
+
+type CountViolationsParams struct {
+	Column1 string
+	Column2 string
+	Column3 pgtype.Timestamptz
+	Column4 pgtype.Timestamptz
+	Column5 float64
+	Column6 float64
+	Column7 float64
+	Column8 float64
+}
+
+func (q *Queries) CountViolations(ctx context.Context, arg *CountViolationsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countViolations,
+		arg.Column1,
+		arg.Column2,
+		arg.Column3,
+		arg.Column4,
+		arg.Column5,
+		arg.Column6,
+		arg.Column7,
+		arg.Column8,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (name)
 VALUES ($1)
@@ -244,6 +285,77 @@ func (q *Queries) GetViolationByID(ctx context.Context, id pgtype.UUID) (*Violat
 		&i.UpdatedAt,
 	)
 	return &i, err
+}
+
+const listViolations = `-- name: ListViolations :many
+SELECT id, user_id, type, description, lat, lng, status, confirmations_count, created_at, updated_at
+FROM violations
+WHERE
+  ($1::text IS NULL OR type = $1) AND
+  ($2::text IS NULL OR status = $2) AND
+  ($3::timestamptz IS NULL OR created_at >= $3) AND
+  ($4::timestamptz IS NULL OR created_at <= $4) AND
+  (
+    ($5::float8 IS NULL OR $6::float8 IS NULL OR $7::float8 IS NULL OR $8::float8 IS NULL)
+    OR (lng BETWEEN $5 AND $7 AND lat BETWEEN $6 AND $8)
+  )
+ORDER BY created_at DESC
+LIMIT $9 OFFSET $10
+`
+
+type ListViolationsParams struct {
+	Column1 string
+	Column2 string
+	Column3 pgtype.Timestamptz
+	Column4 pgtype.Timestamptz
+	Column5 float64
+	Column6 float64
+	Column7 float64
+	Column8 float64
+	Limit   int32
+	Offset  int32
+}
+
+func (q *Queries) ListViolations(ctx context.Context, arg *ListViolationsParams) ([]*Violation, error) {
+	rows, err := q.db.Query(ctx, listViolations,
+		arg.Column1,
+		arg.Column2,
+		arg.Column3,
+		arg.Column4,
+		arg.Column5,
+		arg.Column6,
+		arg.Column7,
+		arg.Column8,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Violation
+	for rows.Next() {
+		var i Violation
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Type,
+			&i.Description,
+			&i.Lat,
+			&i.Lng,
+			&i.Status,
+			&i.ConfirmationsCount,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateUserName = `-- name: UpdateUserName :one
