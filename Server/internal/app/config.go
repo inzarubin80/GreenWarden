@@ -30,6 +30,7 @@ type (
 		storeSecret           string
 		accessTokenSecret     string
 		refreshTokenSecret    string
+		mobileAppSecret       string
 		yosAccessKey          string
 		yosSecretKey          string
 		yosBucket             string
@@ -153,6 +154,7 @@ func NewConfig(opts Options) config {
 			storeSecret:        os.Getenv("STORE_SECRET"),
 			accessTokenSecret:  os.Getenv("ACCESS_TOKEN_SECRET"),
 			refreshTokenSecret: os.Getenv("REFRESH_TOKEN_SECRET"),
+			mobileAppSecret:    os.Getenv("MOBILE_APP_SECRET"),
 
 			yosAccessKey:  os.Getenv("YOS_ACCESS_KEY"),
 			yosSecretKey:  os.Getenv("YOS_SECRET_KEY"),

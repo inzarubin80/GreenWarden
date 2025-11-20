@@ -136,7 +136,9 @@ func NewApp(ctx context.Context, config config, dbConn *pgxpool.Pool) (*App, err
 		AllowedHeaders: []string{
 			"Origin", "Content-Type", "Accept", "Authorization",
 			"X-Requested-With", "X-CSRF-Token", "Custom-Header",
-			"Cookie", // Важно для работы с куками
+			"Cookie",             // Важно для работы с куками
+			"X-Mobile-Signature", // HMAC-SHA256 подпись запроса (Base64)
+			"X-Mobile-Timestamp", // Timestamp запроса (миллисекунды)
 		},
 		// Разрешаем куки и авторизацию
 		AllowCredentials: true,
@@ -146,45 +148,64 @@ func NewApp(ctx context.Context, config config, dbConn *pgxpool.Pool) (*App, err
 		MaxAge: 86400,
 	}
 
-	// Для продакшена: проверяем whitelist из конфига
-	if len(config.corsAllowedOrigins) > 0 {
-		allowedOriginsMap := make(map[string]bool)
-		for _, origin := range config.corsAllowedOrigins {
-			allowedOriginsMap[origin] = true
+	// Создаем whitelist для веб-приложений
+	allowedOriginsMap := make(map[string]bool)
+	for _, origin := range config.corsAllowedOrigins {
+		allowedOriginsMap[origin] = true
+	}
+
+	// Дефолтные origins для разработки
+	devOrigins := []string{
+		"http://localhost:3000",
+		"http://10.0.2.2",
+	}
+	devOriginsMap := make(map[string]bool)
+	for _, origin := range devOrigins {
+		devOriginsMap[origin] = true
+	}
+
+	// Используем AllowOriginVaryRequestFunc для доступа к заголовкам запроса
+	corsOptions.AllowOriginVaryRequestFunc = func(r *http.Request, origin string) (bool, []string) {
+		// Если origin пустой - разрешаем для мобильных приложений
+		// Проверка подписи будет выполнена в MobileSignatureMiddleware
+		if origin == "" {
+			// Проверяем наличие заголовков подписи (проверка самой подписи в middleware)
+			signature := r.Header.Get("X-Mobile-Signature")
+			timestamp := r.Header.Get("X-Mobile-Timestamp")
+			if signature != "" && timestamp != "" {
+				// Мобильное приложение с заголовками подписи
+				return true, []string{"X-Mobile-Signature", "X-Mobile-Timestamp"}
+			}
+			// Пустой origin без заголовков подписи - блокируем (защита от атак)
+			return false, nil
 		}
-		corsOptions.AllowOriginFunc = func(origin string) bool {
-			// Разрешаем пустой origin для мобильных приложений
-			if origin == "" {
-				return true
+
+		// Для веб-приложений: строгая проверка whitelist
+		if len(config.corsAllowedOrigins) > 0 {
+			// В продакшене: проверяем только whitelist из конфига
+			if allowedOriginsMap[origin] {
+				return true, nil
 			}
-			// Разрешаем только origins из whitelist
-			return allowedOriginsMap[origin]
+			return false, nil
 		}
-	} else {
-		// Для разработки: разрешаем дефолтные origins + пустой origin для мобильных
-		corsOptions.AllowOriginFunc = func(origin string) bool {
-			// Разрешаем пустой origin для мобильных приложений
-			if origin == "" {
-				return true
-			}
-			// Разрешаем дефолтные origins для веб-разработки
-			allowed := []string{
-				"http://localhost:3000",
-				"http://10.0.2.2",
-			}
-			for _, allowedOrigin := range allowed {
-				if origin == allowedOrigin {
-					return true
-				}
-			}
-			return false
+
+		// В режиме разработки: проверяем дефолтные origins
+		if devOriginsMap[origin] {
+			return true, nil
 		}
+
+		return false, nil
 	}
 
 	corsMiddleware := cors.New(corsOptions)
 
-	// Обертываем основной обработчик: сначала CORS, потом логирование
-	handler := corsMiddleware.Handler(middleware.NewLogMux(mux))
+	// Обертываем основной обработчик: сначала CORS, потом проверка подписи для мобильных, потом логирование
+	handler := corsMiddleware.Handler(
+		middleware.NewMobileSignatureMiddleware(
+			middleware.NewLogMux(mux),
+			config.sectrets.mobileAppSecret,
+		),
+	)
 
 	return &App{
 		mux:           mux,
