@@ -102,10 +102,7 @@ func NewConfig(opts Options) config {
 	}
 
 	// Парсим CORS allowed origins из переменной окружения
-	corsOrigins := []string{
-		"http://localhost:3000",
-		"http://10.0.2.2", // Android emulator (для разработки)
-	}
+	corsOrigins := []string{} // Начинаем с пустого массива
 	if corsEnv := os.Getenv("CORS_ALLOWED_ORIGINS"); corsEnv != "" {
 		// Разделяем по запятой и очищаем пробелы
 		origins := strings.Split(corsEnv, ",")
@@ -114,6 +111,15 @@ func NewConfig(opts Options) config {
 			origin = strings.TrimSpace(origin)
 			if origin != "" {
 				corsOrigins = append(corsOrigins, origin)
+			}
+		}
+	} else {
+		// Для разработки: добавляем дефолтные origins только если не продакшен
+		// Можно определить продакшен по наличию других переменных окружения
+		if os.Getenv("ENV") != "production" {
+			corsOrigins = []string{
+				"http://localhost:3000",
+				"http://10.0.2.2", // Android emulator
 			}
 		}
 	}
