@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/inzarubin80/Server/internal/app/uhttp"
 	"github.com/inzarubin80/Server/internal/model"
+	"github.com/inzarubin80/Server/internal/storage/objectstorage"
 )
 
 type (
@@ -16,15 +18,17 @@ type (
 	}
 
 	GetViolationHandler struct {
-		name    string
-		service serviceGetViolation
+		name     string
+		service  serviceGetViolation
+		uploader *objectstorage.Uploader
 	}
 )
 
-func NewGetViolationHandler(name string, service serviceGetViolation) *GetViolationHandler {
+func NewGetViolationHandler(name string, service serviceGetViolation, uploader *objectstorage.Uploader) *GetViolationHandler {
 	return &GetViolationHandler{
-		name:    name,
-		service: service,
+		name:     name,
+		service:  service,
+		uploader: uploader,
 	}
 }
 
@@ -68,6 +72,26 @@ func (h *GetViolationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	
+	// Transform photo URLs to public URLs
+	publicPhotos := make([]model.ViolationPhoto, len(violation.Photos))
+	for i, photo := range violation.Photos {
+		publicPhoto := photo
+		
+		// Generate public URL for main photo (24 hour expiry for presigned URLs)
+		if publicURL, err := h.uploader.GetPublicURL(r.Context(), photo.URL, 24*time.Hour); err == nil {
+			publicPhoto.URL = publicURL
+		}
+		
+		// Generate public URL for thumbnail if present
+		if photo.ThumbnailURL != "" {
+			if thumbURL, err := h.uploader.GetPublicURL(r.Context(), photo.ThumbnailURL, 24*time.Hour); err == nil {
+				publicPhoto.ThumbnailURL = thumbURL
+			}
+		}
+		
+		publicPhotos[i] = publicPhoto
+	}
+	
 	// Return only required fields: user_id, description, lat, lng, photos
 	response := struct {
 		UserID      model.UserID          `json:"user_id"`
@@ -80,7 +104,7 @@ func (h *GetViolationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		Description: violation.Description,
 		Lat:         violation.Lat,
 		Lng:         violation.Lng,
-		Photos:      violation.Photos,
+		Photos:      publicPhotos,
 	}
 	
 	b, err := json.Marshal(response)

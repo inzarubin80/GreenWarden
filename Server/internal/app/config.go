@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	authinterface "github.com/inzarubin80/Server/internal/app/authinterface"
 	providerUserData "github.com/inzarubin80/Server/internal/app/clients/provider_user_data"
@@ -17,7 +18,7 @@ type (
 	Options struct {
 		Addr string
 	}
-		path struct {
+	path struct {
 		index, getPoker, createPoker, createTask,
 		getTasks, getTask, updateTask, deleteTask,
 		getComents, addComent, setVotingTask,
@@ -46,6 +47,8 @@ type (
 		tlsEnabled  bool
 		tlsCertFile string
 		tlsKeyFile  string
+		// CORS settings
+		corsAllowedOrigins []string
 	}
 )
 
@@ -98,6 +101,23 @@ func NewConfig(opts Options) config {
 		}, "google"),
 	}
 
+	// Парсим CORS allowed origins из переменной окружения
+	corsOrigins := []string{
+		"http://localhost:3000",
+		"http://10.0.2.2", // Android emulator (для разработки)
+	}
+	if corsEnv := os.Getenv("CORS_ALLOWED_ORIGINS"); corsEnv != "" {
+		// Разделяем по запятой и очищаем пробелы
+		origins := strings.Split(corsEnv, ",")
+		corsOrigins = make([]string, 0, len(origins))
+		for _, origin := range origins {
+			origin = strings.TrimSpace(origin)
+			if origin != "" {
+				corsOrigins = append(corsOrigins, origin)
+			}
+		}
+	}
+
 	config := config{
 		addr: opts.Addr,
 		path: path{
@@ -127,14 +147,13 @@ func NewConfig(opts Options) config {
 			storeSecret:        os.Getenv("STORE_SECRET"),
 			accessTokenSecret:  os.Getenv("ACCESS_TOKEN_SECRET"),
 			refreshTokenSecret: os.Getenv("REFRESH_TOKEN_SECRET"),
-		
-			yosAccessKey:       os.Getenv("YOS_ACCESS_KEY"),
-			yosSecretKey:       os.Getenv("YOS_SECRET_KEY"),
-			yosBucket:          os.Getenv("YOS_BUCKET"),
-			yosEndpoint:        os.Getenv("YOS_ENDPOINT"),
-			yosCdnBaseURL:      os.Getenv("YOS_CDN_BASE_URL"),
-		
-		
+
+			yosAccessKey:  os.Getenv("YOS_ACCESS_KEY"),
+			yosSecretKey:  os.Getenv("YOS_SECRET_KEY"),
+			yosBucket:     os.Getenv("YOS_BUCKET"),
+			yosEndpoint:   os.Getenv("YOS_ENDPOINT"),
+			yosCdnBaseURL: os.Getenv("YOS_CDN_BASE_URL"),
+
 			maxPhotosPerViolation: func() int {
 				if v := os.Getenv("MAX_PHOTOS_PER_VIOLATION"); v != "" {
 					if n, err := strconv.Atoi(v); err == nil {
@@ -145,10 +164,11 @@ func NewConfig(opts Options) config {
 			}(),
 		},
 
-		provadersConf: provaders,
-		tlsEnabled:    true,
-		tlsCertFile:   os.Getenv("TLS_CERT_FILE"),
-		tlsKeyFile:    os.Getenv("TLS_KEY_FILE"),
+		provadersConf:      provaders,
+		tlsEnabled:         true,
+		tlsCertFile:        os.Getenv("TLS_CERT_FILE"),
+		tlsKeyFile:         os.Getenv("TLS_KEY_FILE"),
+		corsAllowedOrigins: corsOrigins,
 	}
 
 	return config

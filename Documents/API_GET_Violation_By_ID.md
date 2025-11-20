@@ -178,3 +178,8 @@ interface ViolationPhoto {
 - `POST /api/violations` — создание нового нарушения (требует авторизации)
 
 
+
+
+
+
+

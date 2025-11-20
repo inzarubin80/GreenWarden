@@ -34,10 +34,10 @@ func NewExchangeHandler(store *sessions.CookieStore, name string, service servic
 func (h *ExchangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	type request struct {
-		Provider string `json:"provider"`
-		Code     string `json:"code"`
+		Provider     string `json:"provider"`
+		Code         string `json:"code"`
 		CodeVerifier string `json:"code_verifier"`
-		State    string `json:"state"`
+		State        string `json:"state"`
 	}
 
 	var req request
@@ -64,13 +64,15 @@ func (h *ExchangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	session.Values[defenitions.Token] = authData.RefreshToken
 	session.Values[defenitions.UserID] = int64(authData.UserID)
+
+
 	if err := session.Save(r, w); err != nil {
 		uhttp.SendErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	type response struct {
-		Token  string      `json:"token"`
+		Token  string       `json:"token"`
 		UserID model.UserID `json:"user_id"`
 	}
 
@@ -87,5 +89,3 @@ func (h *ExchangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	uhttp.SendSuccessfulResponse(w, jsonData)
 }
-
-

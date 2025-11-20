@@ -19,7 +19,7 @@ import (
 	service "github.com/inzarubin80/Server/internal/service"
 	"github.com/inzarubin80/Server/internal/storage/objectstorage"
 
-	//"github.com/rs/cors"
+	"github.com/rs/cors"
 	"golang.org/x/oauth2"
 )
 
@@ -69,8 +69,9 @@ func (a *App) ListenAndServe() error {
 	a.mux.Handle(a.config.path.getProviders, appHttp.NewProvadersHandler(a.provadersConf, a.config.path.getProviders))
 	a.mux.Handle(a.config.path.login, appHttp.NewLoginHandler(a.provadersConf, a.config.path.login, a.store))
 	a.mux.Handle(a.config.path.exchange, appHttp.NewExchangeHandler(a.store, a.config.path.exchange, a.pokerService))
+	a.mux.Handle(a.config.path.refreshToken, appHttp.NewRefreshTokenHandler(a.pokerService, a.config.path.refreshToken, a.store))
 	a.mux.Handle(a.config.path.listViolations, appHttp.NewListViolationsHandler(a.config.path.listViolations, a.pokerService))
-	a.mux.Handle(a.config.path.getViolation, appHttp.NewGetViolationHandler(a.config.path.getViolation, a.pokerService))
+	a.mux.Handle(a.config.path.getViolation, appHttp.NewGetViolationHandler(a.config.path.getViolation, a.pokerService, a.uploader))
 	a.mux.Handle(a.config.path.createViolation, middleware.NewAuthMiddleware(appHttp.NewCreateViolationHandler(a.store, a.config.path.createViolation, a.pokerService, a.uploader, a.config.sectrets.maxPhotosPerViolation), a.store, a.pokerService))
 	fmt.Println("start server")
 
@@ -85,11 +86,22 @@ func NewApp(ctx context.Context, config config, dbConn *pgxpool.Pool) (*App, err
 		store = sessions.NewCookieStore([]byte(config.sectrets.storeSecret))
 	)
 
+	// Настраиваем опции для CookieStore для работы с мобильными приложениями
+	// ВАЖНО: Secure должен быть false для HTTP, true для HTTPS
+	// В продакшене с HTTPS установите Secure: true
+	store.Options = &sessions.Options{
+		Path:     "/",
+		MaxAge:   86400 * 30,            // 30 дней
+		HttpOnly: true,                  // Разрешить доступ для мобильных приложений
+		Secure:   true,                  // Для HTTP (в продакшене с HTTPS установить true)
+		SameSite: http.SameSiteNoneMode, // Для кросс-доменных запросов (мобильное приложение)
+	}
+
 	// Build repository
 	repo := repository.NewPokerRepository(dbConn)
 
 	// Build token services
-	accessTokenService := tokenservice.NewtokenService([]byte(config.sectrets.accessTokenSecret), 30*time.Minute, model.Access_Token_Type)
+	accessTokenService := tokenservice.NewtokenService([]byte(config.sectrets.accessTokenSecret), 5*time.Second, model.Access_Token_Type)
 	refreshTokenService := tokenservice.NewtokenService([]byte(config.sectrets.refreshTokenSecret), 30*24*time.Hour, model.Refresh_Token_Type)
 
 	// Build providers user data map from config
@@ -116,30 +128,63 @@ func NewApp(ctx context.Context, config config, dbConn *pgxpool.Pool) (*App, err
 		return nil, err
 	}
 
-	/*
-		// Создаем CORS middleware
-		corsMiddleware := cors.New(cors.Options{
-			// Явно разрешаем оба домена (без точки в начале)
-			AllowedOrigins: []string{
+	// Создаем CORS middleware для мобильного приложения
+	corsOptions := cors.Options{
+		// Добавляем все необходимые методы
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
+		// Разрешаем все стандартные заголовки + кастомные
+		AllowedHeaders: []string{
+			"Origin", "Content-Type", "Accept", "Authorization",
+			"X-Requested-With", "X-CSRF-Token", "Custom-Header",
+			"Cookie", // Важно для работы с куками
+		},
+		// Разрешаем куки и авторизацию
+		AllowCredentials: true,
+		// Разрешаем клиенту видеть заголовок Set-Cookie
+		ExposedHeaders: []string{"Set-Cookie"},
+		// Опционально: максимальное время кеширования preflight-запросов
+		MaxAge: 86400,
+	}
+
+	// Для продакшена: проверяем whitelist из конфига
+	if len(config.corsAllowedOrigins) > 0 {
+		allowedOriginsMap := make(map[string]bool)
+		for _, origin := range config.corsAllowedOrigins {
+			allowedOriginsMap[origin] = true
+		}
+		corsOptions.AllowOriginFunc = func(origin string) bool {
+			// Разрешаем пустой origin для мобильных приложений
+			if origin == "" {
+				return true
+			}
+			// Разрешаем только origins из whitelist
+			return allowedOriginsMap[origin]
+		}
+	} else {
+		// Для разработки: разрешаем дефолтные origins + пустой origin для мобильных
+		corsOptions.AllowOriginFunc = func(origin string) bool {
+			// Разрешаем пустой origin для мобильных приложений
+			if origin == "" {
+				return true
+			}
+			// Разрешаем дефолтные origins для веб-разработки
+			allowed := []string{
 				"http://localhost:3000",
 				"http://10.0.2.2",
-			},
-			// Добавляем все необходимые методы
-			AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
-			// Разрешаем все стандартные заголовки + кастомные
-			AllowedHeaders: []string{
-				"Origin", "Content-Type", "Accept", "Authorization",
-				"X-Requested-With", "X-CSRF-Token", "Custom-Header",
-			},
-			// Разрешаем куки и авторизацию
-			AllowCredentials: true,
-			// Опционально: максимальное время кеширования preflight-запросов
-			MaxAge: 86400,
-		})
-	*/
+			}
+			for _, allowedOrigin := range allowed {
+				if origin == allowedOrigin {
+					return true
+				}
+			}
+			return false
+		}
+	}
 
-	// Обертываем основной обработчик
-	handler := middleware.NewLogMux(mux)
+	corsMiddleware := cors.New(corsOptions)
+
+	// Обертываем основной обработчик: сначала CORS, потом логирование
+	handler := corsMiddleware.Handler(middleware.NewLogMux(mux))
 
 	return &App{
 		mux:           mux,
