@@ -22,7 +22,7 @@ type (
 		index, getPoker, createPoker, createTask,
 		getTasks, getTask, updateTask, deleteTask,
 		getComents, addComent, setVotingTask,
-		getVotingControlState, ws, login, exchange, createViolation, listViolations, getViolation, session, refreshToken, logOut, getProviders,
+		getVotingControlState, ws, login, exchange, createViolation, listViolations, getViolation, getViolationRequest, closeViolationRequest, session, refreshToken, logOut, getProviders,
 		ping, vote, getUserEstimates, setVotingControlState, setUserName, getUser, setUserSettings, getLastSession, deletePoker string
 	}
 
@@ -135,9 +135,11 @@ func NewConfig(opts Options) config {
 
 			login:           "POST	/api/user/login",
 			exchange:        "POST	/api/user/exchange",
-			createViolation: "POST	/api/violations",
-			listViolations:  "GET /api/violations",
-			getViolation:    "GET /api/violations/{id}",
+			createViolation:      "POST	/api/violations",
+			listViolations:       "GET /api/violations",
+			getViolation:         "GET /api/violations/{id}",
+			getViolationRequest:  "GET /api/violations/{violation_id}/requests/{request_id}",
+			closeViolationRequest: "POST /api/violations/{id}/close-request",
 			setUserName:     "POST	/api/user/name",
 			setUserSettings: "POST	/api/user/settings",
 

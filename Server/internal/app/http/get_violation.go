@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -45,7 +46,7 @@ func (h *GetViolationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 			uhttp.SendErrorResponse(w, http.StatusBadRequest, "violation ID is required")
 			return
 		}
-		
+
 		// Remove any trailing slashes or query params
 		if idx := strings.Index(path, "/"); idx != -1 {
 			path = path[:idx]
@@ -53,66 +54,133 @@ func (h *GetViolationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		if idx := strings.Index(path, "?"); idx != -1 {
 			path = path[:idx]
 		}
-		
+
 		violationID = model.ViolationID(path)
 	}
-	
+
 	if len(violationID) == 0 {
 		uhttp.SendErrorResponse(w, http.StatusBadRequest, "invalid violation ID format")
 		return
 	}
-	
+
 	violation, err := h.service.GetViolationByID(r.Context(), violationID)
 	if err != nil {
-		if err == model.ErrorNotFound {
+		if errors.Is(err, model.ErrorNotFound) {
 			uhttp.SendErrorResponse(w, http.StatusNotFound, "violation not found")
 			return
 		}
 		uhttp.SendErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	
-	// Transform photo URLs to public URLs
-	publicPhotos := make([]model.ViolationPhoto, len(violation.Photos))
-	for i, photo := range violation.Photos {
-		publicPhoto := photo
-		
+
+	// Photo response structure for API compatibility
+	type PhotoResponse struct {
+		ID           string `json:"id"`
+		ViolationID  string `json:"violation_id"`
+		URL          string `json:"url"`
+		ThumbnailURL string `json:"thumb_url,omitempty"`
+	}
+
+	// Request response structure
+	type RequestResponse struct {
+		ID              string          `json:"id"`
+		Status          string          `json:"status"`
+		CreatedByUserID model.UserID    `json:"created_by_user_id"`
+		Comment         string          `json:"comment,omitempty"`
+		CreatedAt       time.Time       `json:"created_at"`
+		Photos          []PhotoResponse `json:"photos"`
+	}
+
+	// Transform requests with public URLs for photos
+	publicRequests := make([]RequestResponse, 0, len(violation.Requests))
+	var allPhotos []model.ViolationRequestPhoto
+
+	for _, req := range violation.Requests {
+		// Collect all photos for backward compatibility
+		allPhotos = append(allPhotos, req.Photos...)
+
+		// Transform photos for this request to public URLs
+		requestPhotos := make([]PhotoResponse, 0, len(req.Photos))
+		for _, photo := range req.Photos {
+			publicPhoto := PhotoResponse{
+				ID:           photo.ID,
+				ViolationID:  string(violation.ID),
+				URL:          photo.URL,
+				ThumbnailURL: photo.ThumbnailURL,
+			}
+
+			// Generate public URL for main photo (24 hour expiry for presigned URLs)
+			if publicURL, err := h.uploader.GetPublicURL(r.Context(), photo.URL, 24*time.Hour); err == nil {
+				publicPhoto.URL = publicURL
+			}
+
+			// Generate public URL for thumbnail if present
+			if photo.ThumbnailURL != "" {
+				if thumbURL, err := h.uploader.GetPublicURL(r.Context(), photo.ThumbnailURL, 24*time.Hour); err == nil {
+					publicPhoto.ThumbnailURL = thumbURL
+				}
+			}
+
+			requestPhotos = append(requestPhotos, publicPhoto)
+		}
+
+		publicRequests = append(publicRequests, RequestResponse{
+			ID:              req.ID,
+			Status:          string(req.Status),
+			CreatedByUserID: req.CreatedByUserID,
+			Comment:         req.Comment,
+			CreatedAt:       req.CreatedAt,
+			Photos:          requestPhotos,
+		})
+	}
+
+	// Transform all photos to public URLs (for backward compatibility)
+	publicPhotos := make([]PhotoResponse, 0, len(allPhotos))
+	for _, photo := range allPhotos {
+		publicPhoto := PhotoResponse{
+			ID:           photo.ID,
+			ViolationID:  string(violation.ID),
+			URL:          photo.URL,
+			ThumbnailURL: photo.ThumbnailURL,
+		}
+
 		// Generate public URL for main photo (24 hour expiry for presigned URLs)
 		if publicURL, err := h.uploader.GetPublicURL(r.Context(), photo.URL, 24*time.Hour); err == nil {
 			publicPhoto.URL = publicURL
 		}
-		
+
 		// Generate public URL for thumbnail if present
 		if photo.ThumbnailURL != "" {
 			if thumbURL, err := h.uploader.GetPublicURL(r.Context(), photo.ThumbnailURL, 24*time.Hour); err == nil {
 				publicPhoto.ThumbnailURL = thumbURL
 			}
 		}
-		
-		publicPhotos[i] = publicPhoto
+
+		publicPhotos = append(publicPhotos, publicPhoto)
 	}
-	
-	// Return only required fields: user_id, description, lat, lng, photos
+
+	// Return fields: user_id, description, lat, lng, photos (backward compatibility), requests
 	response := struct {
-		UserID      model.UserID          `json:"user_id"`
-		Description string                `json:"description"`
-		Lat         float64               `json:"lat"`
-		Lng         float64               `json:"lng"`
-		Photos      []model.ViolationPhoto `json:"photos"`
+		UserID      model.UserID      `json:"user_id"`
+		Description string            `json:"description"`
+		Lat         float64           `json:"lat"`
+		Lng         float64           `json:"lng"`
+		Photos      []PhotoResponse   `json:"photos"`
+		Requests    []RequestResponse `json:"requests"`
 	}{
 		UserID:      violation.UserID,
 		Description: violation.Description,
 		Lat:         violation.Lat,
 		Lng:         violation.Lng,
 		Photos:      publicPhotos,
+		Requests:    publicRequests,
 	}
-	
+
 	b, err := json.Marshal(response)
 	if err != nil {
 		uhttp.SendErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	
+
 	uhttp.SendSuccessfulResponse(w, b)
 }
-

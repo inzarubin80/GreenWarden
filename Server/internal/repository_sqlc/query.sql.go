@@ -11,6 +11,37 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addRequestPhoto = `-- name: AddRequestPhoto :one
+INSERT INTO violation_request_photos (id, request_id, url, thumb_url)
+VALUES ($1, $2, $3, $4)
+RETURNING id, request_id, url, thumb_url, created_at
+`
+
+type AddRequestPhotoParams struct {
+	ID        pgtype.UUID
+	RequestID pgtype.UUID
+	Url       string
+	ThumbUrl  *string
+}
+
+func (q *Queries) AddRequestPhoto(ctx context.Context, arg *AddRequestPhotoParams) (*ViolationRequestPhoto, error) {
+	row := q.db.QueryRow(ctx, addRequestPhoto,
+		arg.ID,
+		arg.RequestID,
+		arg.Url,
+		arg.ThumbUrl,
+	)
+	var i ViolationRequestPhoto
+	err := row.Scan(
+		&i.ID,
+		&i.RequestID,
+		&i.Url,
+		&i.ThumbUrl,
+		&i.CreatedAt,
+	)
+	return &i, err
+}
+
 const addUserAuthProviders = `-- name: AddUserAuthProviders :one
 INSERT INTO user_auth_providers (user_id, provider_uid, provider, name)
 VALUES ($1, $2, $3, $4)
@@ -167,6 +198,43 @@ func (q *Queries) CreateViolation(ctx context.Context, arg *CreateViolationParam
 	return &i, err
 }
 
+const createViolationRequest = `-- name: CreateViolationRequest :one
+
+INSERT INTO violation_requests (id, violation_id, status, created_by_user_id, comment)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, violation_id, status, created_by_user_id, comment, created_at, updated_at
+`
+
+type CreateViolationRequestParams struct {
+	ID              pgtype.UUID
+	ViolationID     pgtype.UUID
+	Status          string
+	CreatedByUserID int64
+	Comment         *string
+}
+
+// Violation Requests
+func (q *Queries) CreateViolationRequest(ctx context.Context, arg *CreateViolationRequestParams) (*ViolationRequest, error) {
+	row := q.db.QueryRow(ctx, createViolationRequest,
+		arg.ID,
+		arg.ViolationID,
+		arg.Status,
+		arg.CreatedByUserID,
+		arg.Comment,
+	)
+	var i ViolationRequest
+	err := row.Scan(
+		&i.ID,
+		&i.ViolationID,
+		&i.Status,
+		&i.CreatedByUserID,
+		&i.Comment,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
 const getPhotosByViolationID = `-- name: GetPhotosByViolationID :many
 SELECT id, violation_id, url, thumb_url FROM violation_photos WHERE violation_id = $1 ORDER BY id
 `
@@ -185,6 +253,36 @@ func (q *Queries) GetPhotosByViolationID(ctx context.Context, violationID pgtype
 			&i.ViolationID,
 			&i.Url,
 			&i.ThumbUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getRequestPhotosByRequestID = `-- name: GetRequestPhotosByRequestID :many
+SELECT id, request_id, url, thumb_url, created_at FROM violation_request_photos WHERE request_id = $1 ORDER BY created_at
+`
+
+func (q *Queries) GetRequestPhotosByRequestID(ctx context.Context, requestID pgtype.UUID) ([]*ViolationRequestPhoto, error) {
+	rows, err := q.db.Query(ctx, getRequestPhotosByRequestID, requestID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ViolationRequestPhoto
+	for rows.Next() {
+		var i ViolationRequestPhoto
+		if err := rows.Scan(
+			&i.ID,
+			&i.RequestID,
+			&i.Url,
+			&i.ThumbUrl,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -287,6 +385,57 @@ func (q *Queries) GetViolationByID(ctx context.Context, id pgtype.UUID) (*Violat
 	return &i, err
 }
 
+const getViolationRequestByID = `-- name: GetViolationRequestByID :one
+SELECT id, violation_id, status, created_by_user_id, comment, created_at, updated_at FROM violation_requests WHERE id = $1
+`
+
+func (q *Queries) GetViolationRequestByID(ctx context.Context, id pgtype.UUID) (*ViolationRequest, error) {
+	row := q.db.QueryRow(ctx, getViolationRequestByID, id)
+	var i ViolationRequest
+	err := row.Scan(
+		&i.ID,
+		&i.ViolationID,
+		&i.Status,
+		&i.CreatedByUserID,
+		&i.Comment,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const getViolationRequestsByViolationID = `-- name: GetViolationRequestsByViolationID :many
+SELECT id, violation_id, status, created_by_user_id, comment, created_at, updated_at FROM violation_requests WHERE violation_id = $1 ORDER BY created_at
+`
+
+func (q *Queries) GetViolationRequestsByViolationID(ctx context.Context, violationID pgtype.UUID) ([]*ViolationRequest, error) {
+	rows, err := q.db.Query(ctx, getViolationRequestsByViolationID, violationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ViolationRequest
+	for rows.Next() {
+		var i ViolationRequest
+		if err := rows.Scan(
+			&i.ID,
+			&i.ViolationID,
+			&i.Status,
+			&i.CreatedByUserID,
+			&i.Comment,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listViolations = `-- name: ListViolations :many
 SELECT id, user_id, type, description, lat, lng, status, confirmations_count, created_at, updated_at
 FROM violations
@@ -378,6 +527,36 @@ func (q *Queries) UpdateUserName(ctx context.Context, arg *UpdateUserNameParams)
 		&i.Name,
 		&i.EvaluationStrategy,
 		&i.MaximumScore,
+	)
+	return &i, err
+}
+
+const updateViolationStatus = `-- name: UpdateViolationStatus :one
+UPDATE violations
+SET status = $2, updated_at = NOW()
+WHERE id = $1
+RETURNING id, user_id, type, description, lat, lng, status, confirmations_count, created_at, updated_at
+`
+
+type UpdateViolationStatusParams struct {
+	ID     pgtype.UUID
+	Status string
+}
+
+func (q *Queries) UpdateViolationStatus(ctx context.Context, arg *UpdateViolationStatusParams) (*Violation, error) {
+	row := q.db.QueryRow(ctx, updateViolationStatus, arg.ID, arg.Status)
+	var i Violation
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Type,
+		&i.Description,
+		&i.Lat,
+		&i.Lng,
+		&i.Status,
+		&i.ConfirmationsCount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }

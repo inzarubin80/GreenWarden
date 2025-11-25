@@ -29,6 +29,10 @@ type (
 		ListViolations(ctx context.Context, f *model.ListViolationsFilters) ([]*model.Violation, int64, error)
 		GetViolationByID(ctx context.Context, id model.ViolationID) (*model.Violation, error)
 		GetUser(ctx context.Context, userID model.UserID) (*model.User, error)
+		CreateViolationRequest(ctx context.Context, violationID model.ViolationID, status model.ViolationRequestStatus, userID model.UserID, comment string) (*model.ViolationRequest, error)
+		AddRequestPhoto(ctx context.Context, requestID string, url string, thumbURL string) (*model.ViolationRequestPhoto, error)
+		GetOpenRequestByViolationID(ctx context.Context, violationID model.ViolationID) (*model.ViolationRequest, error)
+		GetViolationRequestByID(ctx context.Context, requestID string) (*model.ViolationRequest, error)
 	}
 
 	TokenService interface {

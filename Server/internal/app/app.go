@@ -72,7 +72,9 @@ func (a *App) ListenAndServe() error {
 	a.mux.Handle(a.config.path.refreshToken, appHttp.NewRefreshTokenHandler(a.pokerService, a.config.path.refreshToken, a.store))
 	a.mux.Handle(a.config.path.listViolations, appHttp.NewListViolationsHandler(a.config.path.listViolations, a.pokerService))
 	a.mux.Handle(a.config.path.getViolation, appHttp.NewGetViolationHandler(a.config.path.getViolation, a.pokerService, a.uploader))
+	a.mux.Handle(a.config.path.getViolationRequest, appHttp.NewGetViolationRequestHandler(a.config.path.getViolationRequest, a.pokerService, a.uploader))
 	a.mux.Handle(a.config.path.createViolation, middleware.NewAuthMiddleware(appHttp.NewCreateViolationHandler(a.store, a.config.path.createViolation, a.pokerService, a.uploader, a.config.sectrets.maxPhotosPerViolation), a.store, a.pokerService))
+	a.mux.Handle(a.config.path.closeViolationRequest, middleware.NewAuthMiddleware(appHttp.NewCloseViolationRequestHandler(a.store, a.config.path.closeViolationRequest, a.pokerService, a.uploader, a.config.sectrets.maxPhotosPerViolation), a.store, a.pokerService))
 	fmt.Println("start server")
 
 	return a.server.ListenAndServe()

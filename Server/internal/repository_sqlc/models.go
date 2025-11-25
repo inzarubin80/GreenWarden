@@ -41,3 +41,21 @@ type ViolationPhoto struct {
 	Url         string
 	ThumbUrl    *string
 }
+
+type ViolationRequest struct {
+	ID              pgtype.UUID
+	ViolationID     pgtype.UUID
+	Status          string
+	CreatedByUserID int64
+	Comment         *string
+	CreatedAt       pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
+}
+
+type ViolationRequestPhoto struct {
+	ID        pgtype.UUID
+	RequestID pgtype.UUID
+	Url       string
+	ThumbUrl  *string
+	CreatedAt pgtype.Timestamptz
+}

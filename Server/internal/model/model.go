@@ -2,21 +2,23 @@ package model
 
 import (
 	"time"
+
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const (
-	Access_Token_Type         = "access_token"
-	Refresh_Token_Type        = "refresh_Token"
+	Access_Token_Type  = "access_token"
+	Refresh_Token_Type = "refresh_Token"
 )
 
 type (
 	ViolationID string
 
-	ViolationType   string
-	ViolationStatus string
+	ViolationType          string
+	ViolationStatus        string
+	ViolationRequestStatus string
 
 	TaskID     int64
 	PokerID    string
@@ -43,31 +45,45 @@ type (
 	}
 
 	Violation struct {
-		ID                  ViolationID     `json:"id"`
-		UserID              UserID          `json:"user_id"`
-		Type                ViolationType   `json:"type"`
-		Description         string          `json:"description"`
-		Lat                 float64         `json:"lat"`
-		Lng                 float64         `json:"lng"`
-		Status              ViolationStatus `json:"status"`
-		ConfirmationsCount  int             `json:"confirmations_count"`
-		Photos              []ViolationPhoto `json:"photos,omitempty"`
-		CreatedAt           time.Time       `json:"created_at"`
-		UpdatedAt           time.Time       `json:"updated_at"`
+		ID                 ViolationID     `json:"id"`
+		UserID             UserID          `json:"user_id"`
+		Type               ViolationType   `json:"type"`
+		Description        string          `json:"description"`
+		Lat                float64         `json:"lat"`
+		Lng                float64         `json:"lng"`
+		Status             ViolationStatus `json:"status"`
+		ConfirmationsCount int             `json:"confirmations_count"`
+		CreatedAt          time.Time       `json:"created_at"`
+		UpdatedAt          time.Time       `json:"updated_at"`
+		// Фото загружаются через заявки (Requests)
+		Requests []ViolationRequest `json:"requests,omitempty"`
 	}
 
+	ViolationRequest struct {
+		ID              string                  `json:"id"`
+		ViolationID     ViolationID             `json:"violation_id"`
+		Status          ViolationRequestStatus  `json:"status"`
+		CreatedByUserID UserID                  `json:"created_by_user_id"`
+		Comment         string                  `json:"comment,omitempty"`
+		Photos          []ViolationRequestPhoto `json:"photos,omitempty"`
+		CreatedAt       time.Time               `json:"created_at"`
+		UpdatedAt       time.Time               `json:"updated_at"`
+	}
+
+	ViolationRequestPhoto struct {
+		ID           string    `json:"id"`
+		RequestID    string    `json:"request_id"`
+		URL          string    `json:"url"`
+		ThumbnailURL string    `json:"thumb_url,omitempty"`
+		CreatedAt    time.Time `json:"created_at"`
+	}
+
+	// Deprecated: используйте ViolationRequestPhoto
 	ViolationPhoto struct {
 		ID           string `json:"id"`
 		ViolationID  string `json:"violation_id"`
 		URL          string `json:"url"`
 		ThumbnailURL string `json:"thumb_url,omitempty"`
-	}
-
-	LastSessionPoker struct {
-		PokerID     PokerID
-		UserID      UserID
-		Name        string
-	    IsAdmin     bool
 	}
 
 	UserSettings struct {
@@ -83,36 +99,30 @@ type (
 		Name        string
 	}
 
-
 	AuthData struct {
 		UserID       UserID
 		RefreshToken string
 		AccessToken  string
 	}
 
-
-
 	Claims struct {
 		UserID    UserID `json:"user_id"`
 		TokenType string `json:"token_type"` // Добавляем поле для типа токена
 		jwt.StandardClaims
 	}
-
-
-	
 )
 
 // Filters and pagination DTOs
 type ListViolationsFilters struct {
-	Type    *string
-	Status  *string
-	From    *time.Time
-	To      *time.Time
-	MinLng  *float64
-	MinLat  *float64
-	MaxLng  *float64
-	MaxLat  *float64
-	Page    int
+	Type     *string
+	Status   *string
+	From     *time.Time
+	To       *time.Time
+	MinLng   *float64
+	MinLat   *float64
+	MaxLng   *float64
+	MaxLat   *float64
+	Page     int
 	PageSize int
 }
 

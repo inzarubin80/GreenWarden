@@ -14,8 +14,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-
-
 func (r *Repository) CreateViolation(ctx context.Context, userID model.UserID, vType model.ViolationType, description string, lat, lng float64) (*model.Violation, error) {
 	reposqlsc := sqlc_repository.New(r.conn)
 	violationUUID := uuid.New()
@@ -50,7 +48,7 @@ func (r *Repository) CreateViolation(ctx context.Context, userID model.UserID, v
 		desc = *v.Description
 	}
 
-	return &model.Violation{
+	violation := &model.Violation{
 		ID:                 model.ViolationID(violationUUID.String()),
 		UserID:             model.UserID(v.UserID),
 		Type:               model.ViolationType(v.Type),
@@ -61,7 +59,23 @@ func (r *Repository) CreateViolation(ctx context.Context, userID model.UserID, v
 		ConfirmationsCount: int(v.ConfirmationsCount),
 		CreatedAt:          createdAt,
 		UpdatedAt:          updatedAt,
-	}, nil
+	}
+
+	// Автоматически создаем заявку со статусом 'open'
+	requestUUID := uuid.New()
+	requestArg := &sqlc_repository.CreateViolationRequestParams{
+		ID:              pgtype.UUID{Bytes: requestUUID, Valid: true},
+		ViolationID:     pgtype.UUID{Bytes: violationUUID, Valid: true},
+		Status:          "open",
+		CreatedByUserID: int64(userID),
+		Comment:         nil,
+	}
+	_, err = reposqlsc.CreateViolationRequest(ctx, requestArg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create violation request: %w", err)
+	}
+
+	return violation, nil
 }
 
 func (r *Repository) AddViolationPhoto(ctx context.Context, violationID string, url string, thumbURL string) (*model.ViolationPhoto, error) {
@@ -156,15 +170,15 @@ func (r *Repository) ListViolations(ctx context.Context, f *model.ListViolations
 	var out []*model.Violation
 	for rows.Next() {
 		var (
-			idStr        string
-			userID       int64
-			vType        string
-			desc         string
-			lat, lng     float64
-			status       string
-			confirmCnt   int32
-			createdAt    time.Time
-			updatedAt    time.Time
+			idStr      string
+			userID     int64
+			vType      string
+			desc       string
+			lat, lng   float64
+			status     string
+			confirmCnt int32
+			createdAt  time.Time
+			updatedAt  time.Time
 		)
 		if err := rows.Scan(&idStr, &userID, &vType, &desc, &lat, &lng, &status, &confirmCnt, &createdAt, &updatedAt); err != nil {
 			return nil, 0, err
@@ -190,12 +204,12 @@ func (r *Repository) ListViolations(ctx context.Context, f *model.ListViolations
 
 func (r *Repository) GetViolationByID(ctx context.Context, id model.ViolationID) (*model.Violation, error) {
 	reposqlsc := sqlc_repository.New(r.conn)
-	
+
 	violationUUID, err := uuid.Parse(string(id))
 	if err != nil {
 		return nil, fmt.Errorf("invalid violation ID: %w", err)
 	}
-	
+
 	v, err := reposqlsc.GetViolationByID(ctx, pgtype.UUID{Bytes: violationUUID, Valid: true})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -203,28 +217,68 @@ func (r *Repository) GetViolationByID(ctx context.Context, id model.ViolationID)
 		}
 		return nil, err
 	}
-	
-	// Get photos for this violation
-	photos, err := reposqlsc.GetPhotosByViolationID(ctx, pgtype.UUID{Bytes: violationUUID, Valid: true})
+
+	// Get requests for this violation (to load photos)
+	requests, err := reposqlsc.GetViolationRequestsByViolationID(ctx, pgtype.UUID{Bytes: violationUUID, Valid: true})
 	if err != nil {
 		return nil, err
 	}
-	
-	// Map photos
-	violationPhotos := make([]model.ViolationPhoto, 0, len(photos))
-	for _, p := range photos {
-		thumb := ""
-		if p.ThumbUrl != nil {
-			thumb = *p.ThumbUrl
+
+	// Map requests with photos
+	violationRequests := make([]model.ViolationRequest, 0, len(requests))
+	for _, req := range requests {
+		// Get photos for this request
+		photos, err := reposqlsc.GetRequestPhotosByRequestID(ctx, req.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get photos for request: %w", err)
 		}
-		violationPhotos = append(violationPhotos, model.ViolationPhoto{
-			ID:           uuid.UUID(p.ID.Bytes).String(),
-			ViolationID:  uuid.UUID(p.ViolationID.Bytes).String(),
-			URL:          p.Url,
-			ThumbnailURL: thumb,
+
+		// Map photos
+		requestPhotos := make([]model.ViolationRequestPhoto, 0, len(photos))
+		for _, p := range photos {
+			thumb := ""
+			if p.ThumbUrl != nil {
+				thumb = *p.ThumbUrl
+			}
+			photoCreatedAt := time.Now()
+			if p.CreatedAt.Valid {
+				photoCreatedAt = p.CreatedAt.Time
+			}
+			requestPhotos = append(requestPhotos, model.ViolationRequestPhoto{
+				ID:           uuid.UUID(p.ID.Bytes).String(),
+				RequestID:    uuid.UUID(p.RequestID.Bytes).String(),
+				URL:          p.Url,
+				ThumbnailURL: thumb,
+				CreatedAt:    photoCreatedAt,
+			})
+		}
+
+		reqCreatedAt := time.Now()
+		reqUpdatedAt := time.Now()
+		if req.CreatedAt.Valid {
+			reqCreatedAt = req.CreatedAt.Time
+		}
+		if req.UpdatedAt.Valid {
+			reqUpdatedAt = req.UpdatedAt.Time
+		}
+
+		comment := ""
+		if req.Comment != nil {
+			comment = *req.Comment
+		}
+
+		violationRequests = append(violationRequests, model.ViolationRequest{
+			ID:              uuid.UUID(req.ID.Bytes).String(),
+			ViolationID:     model.ViolationID(violationUUID.String()),
+			Status:          model.ViolationRequestStatus(req.Status),
+			CreatedByUserID: model.UserID(req.CreatedByUserID),
+			Comment:         comment,
+			Photos:          requestPhotos,
+			CreatedAt:       reqCreatedAt,
+			UpdatedAt:       reqUpdatedAt,
 		})
 	}
-	
+
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	if v.CreatedAt.Valid {
@@ -233,12 +287,12 @@ func (r *Repository) GetViolationByID(ctx context.Context, id model.ViolationID)
 	if v.UpdatedAt.Valid {
 		updatedAt = v.UpdatedAt.Time
 	}
-	
+
 	desc := ""
 	if v.Description != nil {
 		desc = *v.Description
 	}
-	
+
 	return &model.Violation{
 		ID:                 model.ViolationID(violationUUID.String()),
 		UserID:             model.UserID(v.UserID),
@@ -248,9 +302,272 @@ func (r *Repository) GetViolationByID(ctx context.Context, id model.ViolationID)
 		Lng:                v.Lng,
 		Status:             model.ViolationStatus(v.Status),
 		ConfirmationsCount: int(v.ConfirmationsCount),
-		Photos:             violationPhotos,
+		Requests:           violationRequests,
 		CreatedAt:          createdAt,
 		UpdatedAt:          updatedAt,
 	}, nil
 }
 
+// CreateViolationRequest creates a request for closing a violation
+func (r *Repository) CreateViolationRequest(ctx context.Context, violationID model.ViolationID, status model.ViolationRequestStatus, userID model.UserID, comment string) (*model.ViolationRequest, error) {
+	reposqlsc := sqlc_repository.New(r.conn)
+
+	violationUUID, err := uuid.Parse(string(violationID))
+	if err != nil {
+		return nil, fmt.Errorf("invalid violation ID: %w", err)
+	}
+
+	requestUUID := uuid.New()
+	var commentPtr *string
+	if comment != "" {
+		commentPtr = &comment
+	}
+
+	arg := &sqlc_repository.CreateViolationRequestParams{
+		ID:              pgtype.UUID{Bytes: requestUUID, Valid: true},
+		ViolationID:     pgtype.UUID{Bytes: violationUUID, Valid: true},
+		Status:          string(status),
+		CreatedByUserID: int64(userID),
+		Comment:         commentPtr,
+	}
+
+	req, err := reposqlsc.CreateViolationRequest(ctx, arg)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update violation status based on request status
+	var newStatus model.ViolationStatus
+	if status == "partially_closed" {
+		newStatus = "partially_resolved"
+	} else if status == "closed" {
+		newStatus = "resolved"
+	} else {
+		// For 'open' status, don't change violation status
+		newStatus = model.ViolationStatus(req.Status)
+	}
+
+	if newStatus != "" && status != "open" {
+		_, err = reposqlsc.UpdateViolationStatus(ctx, &sqlc_repository.UpdateViolationStatusParams{
+			ID:     pgtype.UUID{Bytes: violationUUID, Valid: true},
+			Status: string(newStatus),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to update violation status: %w", err)
+		}
+	}
+
+	reqCreatedAt := time.Now()
+	reqUpdatedAt := time.Now()
+	if req.CreatedAt.Valid {
+		reqCreatedAt = req.CreatedAt.Time
+	}
+	if req.UpdatedAt.Valid {
+		reqUpdatedAt = req.UpdatedAt.Time
+	}
+
+	reqComment := ""
+	if req.Comment != nil {
+		reqComment = *req.Comment
+	}
+
+	return &model.ViolationRequest{
+		ID:              uuid.UUID(req.ID.Bytes).String(),
+		ViolationID:     violationID,
+		Status:          model.ViolationRequestStatus(req.Status),
+		CreatedByUserID: model.UserID(req.CreatedByUserID),
+		Comment:         reqComment,
+		Photos:          []model.ViolationRequestPhoto{},
+		CreatedAt:       reqCreatedAt,
+		UpdatedAt:       reqUpdatedAt,
+	}, nil
+}
+
+// AddRequestPhoto adds a photo to a violation request
+func (r *Repository) AddRequestPhoto(ctx context.Context, requestID string, url string, thumbURL string) (*model.ViolationRequestPhoto, error) {
+	reposqlsc := sqlc_repository.New(r.conn)
+
+	requestUUID, err := uuid.Parse(requestID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid request ID: %w", err)
+	}
+
+	photoUUID := uuid.New()
+	var thumbPtr *string
+	if thumbURL != "" {
+		thumbPtr = &thumbURL
+	}
+
+	arg := &sqlc_repository.AddRequestPhotoParams{
+		ID:        pgtype.UUID{Bytes: photoUUID, Valid: true},
+		RequestID: pgtype.UUID{Bytes: requestUUID, Valid: true},
+		Url:       url,
+		ThumbUrl:  thumbPtr,
+	}
+
+	p, err := reposqlsc.AddRequestPhoto(ctx, arg)
+	if err != nil {
+		return nil, err
+	}
+
+	thumb := ""
+	if p.ThumbUrl != nil {
+		thumb = *p.ThumbUrl
+	}
+
+	photoCreatedAt := time.Now()
+	if p.CreatedAt.Valid {
+		photoCreatedAt = p.CreatedAt.Time
+	}
+
+	return &model.ViolationRequestPhoto{
+		ID:           photoUUID.String(),
+		RequestID:    requestID,
+		URL:          p.Url,
+		ThumbnailURL: thumb,
+		CreatedAt:    photoCreatedAt,
+	}, nil
+}
+
+// GetOpenRequestByViolationID gets the open request for a violation (created automatically)
+func (r *Repository) GetOpenRequestByViolationID(ctx context.Context, violationID model.ViolationID) (*model.ViolationRequest, error) {
+	reposqlsc := sqlc_repository.New(r.conn)
+
+	violationUUID, err := uuid.Parse(string(violationID))
+	if err != nil {
+		return nil, fmt.Errorf("invalid violation ID: %w", err)
+	}
+
+	requests, err := reposqlsc.GetViolationRequestsByViolationID(ctx, pgtype.UUID{Bytes: violationUUID, Valid: true})
+	if err != nil {
+		return nil, err
+	}
+
+	// Find open request
+	for _, req := range requests {
+		if req.Status == "open" {
+			// Get photos for this request
+			photos, err := reposqlsc.GetRequestPhotosByRequestID(ctx, req.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get photos for request: %w", err)
+			}
+
+			requestPhotos := make([]model.ViolationRequestPhoto, 0, len(photos))
+			for _, p := range photos {
+				thumb := ""
+				if p.ThumbUrl != nil {
+					thumb = *p.ThumbUrl
+				}
+				photoCreatedAt := time.Now()
+				if p.CreatedAt.Valid {
+					photoCreatedAt = p.CreatedAt.Time
+				}
+				requestPhotos = append(requestPhotos, model.ViolationRequestPhoto{
+					ID:           uuid.UUID(p.ID.Bytes).String(),
+					RequestID:    uuid.UUID(req.ID.Bytes).String(),
+					URL:          p.Url,
+					ThumbnailURL: thumb,
+					CreatedAt:    photoCreatedAt,
+				})
+			}
+
+			reqCreatedAt := time.Now()
+			reqUpdatedAt := time.Now()
+			if req.CreatedAt.Valid {
+				reqCreatedAt = req.CreatedAt.Time
+			}
+			if req.UpdatedAt.Valid {
+				reqUpdatedAt = req.UpdatedAt.Time
+			}
+
+			comment := ""
+			if req.Comment != nil {
+				comment = *req.Comment
+			}
+
+			return &model.ViolationRequest{
+				ID:              uuid.UUID(req.ID.Bytes).String(),
+				ViolationID:     violationID,
+				Status:          model.ViolationRequestStatus(req.Status),
+				CreatedByUserID: model.UserID(req.CreatedByUserID),
+				Comment:         comment,
+				Photos:          requestPhotos,
+				CreatedAt:       reqCreatedAt,
+				UpdatedAt:       reqUpdatedAt,
+			}, nil
+		}
+	}
+
+	return nil, fmt.Errorf("open request not found for violation")
+}
+
+// GetViolationRequestByID gets a violation request by its ID
+func (r *Repository) GetViolationRequestByID(ctx context.Context, requestID string) (*model.ViolationRequest, error) {
+	reposqlsc := sqlc_repository.New(r.conn)
+
+	requestUUID, err := uuid.Parse(requestID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid request ID: %w", err)
+	}
+
+	req, err := reposqlsc.GetViolationRequestByID(ctx, pgtype.UUID{Bytes: requestUUID, Valid: true})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("%w: violation request not found", model.ErrorNotFound)
+		}
+		return nil, err
+	}
+
+	// Get photos for this request
+	photos, err := reposqlsc.GetRequestPhotosByRequestID(ctx, req.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get photos for request: %w", err)
+	}
+
+	// Map photos
+	requestPhotos := make([]model.ViolationRequestPhoto, 0, len(photos))
+	for _, p := range photos {
+		thumb := ""
+		if p.ThumbUrl != nil {
+			thumb = *p.ThumbUrl
+		}
+		photoCreatedAt := time.Now()
+		if p.CreatedAt.Valid {
+			photoCreatedAt = p.CreatedAt.Time
+		}
+		requestPhotos = append(requestPhotos, model.ViolationRequestPhoto{
+			ID:           uuid.UUID(p.ID.Bytes).String(),
+			RequestID:    uuid.UUID(p.RequestID.Bytes).String(),
+			URL:          p.Url,
+			ThumbnailURL: thumb,
+			CreatedAt:    photoCreatedAt,
+		})
+	}
+
+	reqCreatedAt := time.Now()
+	reqUpdatedAt := time.Now()
+	if req.CreatedAt.Valid {
+		reqCreatedAt = req.CreatedAt.Time
+	}
+	if req.UpdatedAt.Valid {
+		reqUpdatedAt = req.UpdatedAt.Time
+	}
+
+	comment := ""
+	if req.Comment != nil {
+		comment = *req.Comment
+	}
+
+	violationUUID := uuid.UUID(req.ViolationID.Bytes)
+
+	return &model.ViolationRequest{
+		ID:              uuid.UUID(req.ID.Bytes).String(),
+		ViolationID:     model.ViolationID(violationUUID.String()),
+		Status:          model.ViolationRequestStatus(req.Status),
+		CreatedByUserID: model.UserID(req.CreatedByUserID),
+		Comment:         comment,
+		Photos:          requestPhotos,
+		CreatedAt:       reqCreatedAt,
+		UpdatedAt:       reqUpdatedAt,
+	}, nil
+}

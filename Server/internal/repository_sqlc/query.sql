@@ -74,4 +74,31 @@ WHERE
     OR (lng BETWEEN $5 AND $7 AND lat BETWEEN $6 AND $8)
   );
 
+-- Violation Requests
+
+-- name: CreateViolationRequest :one
+INSERT INTO violation_requests (id, violation_id, status, created_by_user_id, comment)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: GetViolationRequestsByViolationID :many
+SELECT * FROM violation_requests WHERE violation_id = $1 ORDER BY created_at;
+
+-- name: GetViolationRequestByID :one
+SELECT * FROM violation_requests WHERE id = $1;
+
+-- name: AddRequestPhoto :one
+INSERT INTO violation_request_photos (id, request_id, url, thumb_url)
+VALUES ($1, $2, $3, $4)
+RETURNING *;
+
+-- name: GetRequestPhotosByRequestID :many
+SELECT * FROM violation_request_photos WHERE request_id = $1 ORDER BY created_at;
+
+-- name: UpdateViolationStatus :one
+UPDATE violations
+SET status = $2, updated_at = NOW()
+WHERE id = $1
+RETURNING *;
+
 

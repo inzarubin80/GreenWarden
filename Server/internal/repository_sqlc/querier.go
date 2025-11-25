@@ -11,19 +11,26 @@ import (
 )
 
 type Querier interface {
+	AddRequestPhoto(ctx context.Context, arg *AddRequestPhotoParams) (*ViolationRequestPhoto, error)
 	AddUserAuthProviders(ctx context.Context, arg *AddUserAuthProvidersParams) (*UserAuthProvider, error)
 	AddViolationPhoto(ctx context.Context, arg *AddViolationPhotoParams) (*ViolationPhoto, error)
 	CountViolations(ctx context.Context, arg *CountViolationsParams) (int64, error)
 	CreateUser(ctx context.Context, name string) (int64, error)
 	// Violations
 	CreateViolation(ctx context.Context, arg *CreateViolationParams) (*Violation, error)
+	// Violation Requests
+	CreateViolationRequest(ctx context.Context, arg *CreateViolationRequestParams) (*ViolationRequest, error)
 	GetPhotosByViolationID(ctx context.Context, violationID pgtype.UUID) ([]*ViolationPhoto, error)
+	GetRequestPhotosByRequestID(ctx context.Context, requestID pgtype.UUID) ([]*ViolationRequestPhoto, error)
 	GetUserAuthProvidersByProviderUid(ctx context.Context, arg *GetUserAuthProvidersByProviderUidParams) (*UserAuthProvider, error)
 	GetUserByID(ctx context.Context, userID int64) (*User, error)
 	GetUsersByIDs(ctx context.Context, dollar_1 []int64) ([]*User, error)
 	GetViolationByID(ctx context.Context, id pgtype.UUID) (*Violation, error)
+	GetViolationRequestByID(ctx context.Context, id pgtype.UUID) (*ViolationRequest, error)
+	GetViolationRequestsByViolationID(ctx context.Context, violationID pgtype.UUID) ([]*ViolationRequest, error)
 	ListViolations(ctx context.Context, arg *ListViolationsParams) ([]*Violation, error)
 	UpdateUserName(ctx context.Context, arg *UpdateUserNameParams) (*User, error)
+	UpdateViolationStatus(ctx context.Context, arg *UpdateViolationStatusParams) (*Violation, error)
 }
 
 var _ Querier = (*Queries)(nil)
