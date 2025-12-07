@@ -18,8 +18,15 @@ type Querier interface {
 	CreateUser(ctx context.Context, name string) (int64, error)
 	// Violations
 	CreateViolation(ctx context.Context, arg *CreateViolationParams) (*Violation, error)
+	// Violation chat messages
+	CreateViolationChatMessage(ctx context.Context, arg *CreateViolationChatMessageParams) (*ViolationChatMessage, error)
+	// Violation complaints
+	CreateViolationComplaint(ctx context.Context, arg *CreateViolationComplaintParams) (*ViolationComplaint, error)
 	// Violation Requests
 	CreateViolationRequest(ctx context.Context, arg *CreateViolationRequestParams) (*ViolationRequest, error)
+	CreateViolationRequestComplaint(ctx context.Context, arg *CreateViolationRequestComplaintParams) (*ViolationComplaint, error)
+	DeleteViolationChatMessage(ctx context.Context, arg *DeleteViolationChatMessageParams) (pgtype.UUID, error)
+	DeleteViolationVote(ctx context.Context, arg *DeleteViolationVoteParams) error
 	GetPhotosByViolationID(ctx context.Context, violationID pgtype.UUID) ([]*ViolationPhoto, error)
 	GetRequestPhotosByRequestID(ctx context.Context, requestID pgtype.UUID) ([]*ViolationRequestPhoto, error)
 	GetUserAuthProvidersByProviderUid(ctx context.Context, arg *GetUserAuthProvidersByProviderUidParams) (*UserAuthProvider, error)
@@ -28,9 +35,15 @@ type Querier interface {
 	GetViolationByID(ctx context.Context, id pgtype.UUID) (*Violation, error)
 	GetViolationRequestByID(ctx context.Context, id pgtype.UUID) (*ViolationRequest, error)
 	GetViolationRequestsByViolationID(ctx context.Context, violationID pgtype.UUID) ([]*ViolationRequest, error)
+	GetViolationVotesAggregated(ctx context.Context, arg *GetViolationVotesAggregatedParams) (*GetViolationVotesAggregatedRow, error)
+	ListViolationChatMessages(ctx context.Context, arg *ListViolationChatMessagesParams) ([]*ViolationChatMessage, error)
 	ListViolations(ctx context.Context, arg *ListViolationsParams) ([]*Violation, error)
 	UpdateUserName(ctx context.Context, arg *UpdateUserNameParams) (*User, error)
+	UpdateViolationChatMessage(ctx context.Context, arg *UpdateViolationChatMessageParams) (*ViolationChatMessage, error)
 	UpdateViolationStatus(ctx context.Context, arg *UpdateViolationStatusParams) (*Violation, error)
+	UpsertViolationRequestVote(ctx context.Context, arg *UpsertViolationRequestVoteParams) (*ViolationVote, error)
+	// Violation votes
+	UpsertViolationVote(ctx context.Context, arg *UpsertViolationVoteParams) (*ViolationVote, error)
 }
 
 var _ Querier = (*Queries)(nil)

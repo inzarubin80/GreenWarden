@@ -66,7 +66,7 @@ func (s *PokerService) CreateViolationWithRequestPhotos(ctx context.Context, use
 	}
 
 	// Reload violation with requests to include photos
-	violation, err = s.repository.GetViolationByID(ctx, violation.ID)
+	violation, err = s.repository.GetViolationByID(ctx, violation.ID, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -183,8 +183,8 @@ func (s *PokerService) PostViolationChatMessage(ctx context.Context, userID mode
 		return nil, fmt.Errorf("message text is required")
 	}
 
-	// Ensure violation exists and user has access; reuse GetViolationByID for now.
-	if _, err := s.repository.GetViolationByID(ctx, violationID); err != nil {
+		// Ensure violation exists and user has access; reuse GetViolationByID for now.
+		if _, err := s.repository.GetViolationByID(ctx, violationID, 0); err != nil {
 		return nil, err
 	}
 

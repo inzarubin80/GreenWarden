@@ -68,6 +68,9 @@ type (
 		Photos          []ViolationRequestPhoto `json:"photos,omitempty"`
 		CreatedAt       time.Time               `json:"created_at"`
 		UpdatedAt       time.Time               `json:"updated_at"`
+		Likes           int64                   `json:"likes"`
+		Dislikes        int64                   `json:"dislikes"`
+		UserVote        string                  `json:"user_vote"`
 	}
 
 	ViolationRequestPhoto struct {
@@ -109,6 +112,26 @@ type (
 		UserID    UserID `json:"user_id"`
 		TokenType string `json:"token_type"` // Добавляем поле для типа токена
 		jwt.StandardClaims
+	}
+
+	// Violation votes
+	ViolationVotes struct {
+		ViolationID ViolationID `json:"violation_id"`
+		Likes       int64       `json:"likes"`
+		Dislikes    int64       `json:"dislikes"`
+		// \"like\" | \"dislike\" | \"\" (если пользователь не голосовал или неавторизован)
+		UserVote string `json:"user_vote"`
+	}
+
+	// Violation complaint (user report)
+	ViolationComplaint struct {
+		ID          string      `json:"id"`
+		ViolationID ViolationID `json:"violation_id"`
+		UserID      UserID      `json:"user_id"`
+		RequestID   string      `json:"request_id,omitempty"`
+		Reason      string      `json:"reason,omitempty"`
+		Message     string      `json:"message,omitempty"`
+		CreatedAt   time.Time   `json:"created_at"`
 	}
 )
 

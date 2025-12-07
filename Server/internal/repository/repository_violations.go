@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"time"
 
@@ -203,7 +204,7 @@ func (r *Repository) ListViolations(ctx context.Context, f *model.ListViolations
 	// load full violation details (including requests and photos) for each item.
 	fullOut := make([]*model.Violation, 0, len(out))
 	for _, v := range out {
-		fullV, err := r.GetViolationByID(ctx, v.ID)
+		fullV, err := r.GetViolationByID(ctx, v.ID, 0)
 		if err != nil {
 			// If fetching full details fails, fall back to the basic item.
 			fullOut = append(fullOut, v)
@@ -215,7 +216,7 @@ func (r *Repository) ListViolations(ctx context.Context, f *model.ListViolations
 	return fullOut, total, nil
 }
 
-func (r *Repository) GetViolationByID(ctx context.Context, id model.ViolationID) (*model.Violation, error) {
+func (r *Repository) GetViolationByID(ctx context.Context, id model.ViolationID, userID model.UserID) (*model.Violation, error) {
 	reposqlsc := sqlc_repository.New(r.conn)
 
 	violationUUID, err := uuid.Parse(string(id))
@@ -237,7 +238,91 @@ func (r *Repository) GetViolationByID(ctx context.Context, id model.ViolationID)
 		return nil, err
 	}
 
-	// Map requests with photos
+	// Prepare aggregation of likes/dislikes by request_id.
+	// Collect request UUIDs and string IDs for mapping.
+	requestIDs := make([]uuid.UUID, 0, len(requests))
+	for _, req := range requests {
+		requestIDs = append(requestIDs, uuid.UUID(req.ID.Bytes))
+	}
+
+	likesByRequest := make(map[string]struct {
+		Likes    int64
+		Dislikes int64
+	})
+	userVoteByRequest := make(map[string]string)
+
+	// Aggregate likes/dislikes for all users per request.
+	if len(requestIDs) > 0 {
+		// Build query: SELECT request_id::text, likes, dislikes FROM violation_votes ...
+		rows, err := r.conn.Query(
+			ctx,
+			`SELECT request_id::text,
+			        COALESCE(SUM(CASE WHEN value = 'like' THEN 1 ELSE 0 END), 0)   AS likes,
+			        COALESCE(SUM(CASE WHEN value = 'dislike' THEN 1 ELSE 0 END), 0) AS dislikes
+			 FROM violation_votes
+			 WHERE violation_id = $1
+			   AND request_id IS NOT NULL
+			 GROUP BY request_id`,
+			violationUUID,
+		)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var (
+				reqID    string
+				likes    int64
+				dislikes int64
+			)
+			if err := rows.Scan(&reqID, &likes, &dislikes); err != nil {
+				return nil, err
+			}
+			likesByRequest[reqID] = struct {
+				Likes    int64
+				Dislikes int64
+			}{Likes: likes, Dislikes: dislikes}
+		}
+		if rows.Err() != nil {
+			return nil, rows.Err()
+		}
+	}
+
+	// Aggregate current user's vote per request, if userID is provided.
+	if userID != 0 && len(requestIDs) > 0 {
+		// Convert UUIDs to text array in query using ANY($1::uuid[]).
+		// pgx will handle []uuid.UUID as uuid[].
+		rows, err := r.conn.Query(
+			ctx,
+			`SELECT request_id::text, value
+			 FROM violation_votes
+			 WHERE user_id = $1
+			   AND request_id = ANY($2::uuid[])`,
+			int64(userID),
+			requestIDs,
+		)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var (
+				reqID string
+				value string
+			)
+			if err := rows.Scan(&reqID, &value); err != nil {
+				return nil, err
+			}
+			userVoteByRequest[reqID] = value
+		}
+		if rows.Err() != nil {
+			return nil, rows.Err()
+		}
+	}
+
+	// Map requests with photos and aggregated likes/votes.
 	violationRequests := make([]model.ViolationRequest, 0, len(requests))
 	for _, req := range requests {
 		// Get photos for this request
@@ -280,8 +365,20 @@ func (r *Repository) GetViolationByID(ctx context.Context, id model.ViolationID)
 			comment = *req.Comment
 		}
 
+		reqIDStr := uuid.UUID(req.ID.Bytes).String()
+
+		// Fill likes/dislikes from aggregated map.
+		var likesCount, dislikesCount int64
+		if agg, ok := likesByRequest[reqIDStr]; ok {
+			likesCount = agg.Likes
+			dislikesCount = agg.Dislikes
+		}
+
+		// Fill user vote from userVoteByRequest (empty string if not found).
+		userVote := userVoteByRequest[reqIDStr]
+
 		violationRequests = append(violationRequests, model.ViolationRequest{
-			ID:              uuid.UUID(req.ID.Bytes).String(),
+			ID:              reqIDStr,
 			ViolationID:     model.ViolationID(violationUUID.String()),
 			Status:          model.ViolationRequestStatus(req.Status),
 			CreatedByUserID: model.UserID(req.CreatedByUserID),
@@ -289,6 +386,9 @@ func (r *Repository) GetViolationByID(ctx context.Context, id model.ViolationID)
 			Photos:          requestPhotos,
 			CreatedAt:       reqCreatedAt,
 			UpdatedAt:       reqUpdatedAt,
+			Likes:           likesCount,
+			Dislikes:        dislikesCount,
+			UserVote:        userVote,
 		})
 	}
 
@@ -520,14 +620,17 @@ func (r *Repository) GetViolationRequestByID(ctx context.Context, requestID stri
 
 	requestUUID, err := uuid.Parse(requestID)
 	if err != nil {
+		log.Printf("[GetViolationRequestByID] invalid request ID %q: %v", requestID, err)
 		return nil, fmt.Errorf("invalid request ID: %w", err)
 	}
 
 	req, err := reposqlsc.GetViolationRequestByID(ctx, pgtype.UUID{Bytes: requestUUID, Valid: true})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			log.Printf("[GetViolationRequestByID] not found request_id=%s", requestID)
 			return nil, fmt.Errorf("%w: violation request not found", model.ErrorNotFound)
 		}
+		log.Printf("[GetViolationRequestByID] db error for request_id=%s: %v", requestID, err)
 		return nil, err
 	}
 

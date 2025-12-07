@@ -35,6 +35,26 @@ type Violation struct {
 	UpdatedAt          pgtype.Timestamptz
 }
 
+type ViolationChatMessage struct {
+	ID          pgtype.UUID
+	ViolationID pgtype.UUID
+	UserID      int64
+	Text        string
+	IsSystem    bool
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+}
+
+type ViolationComplaint struct {
+	ID          pgtype.UUID
+	ViolationID pgtype.UUID
+	UserID      int64
+	Reason      *string
+	Message     *string
+	CreatedAt   pgtype.Timestamptz
+	RequestID   pgtype.UUID
+}
+
 type ViolationPhoto struct {
 	ID          pgtype.UUID
 	ViolationID pgtype.UUID
@@ -58,4 +78,14 @@ type ViolationRequestPhoto struct {
 	Url       string
 	ThumbUrl  *string
 	CreatedAt pgtype.Timestamptz
+}
+
+type ViolationVote struct {
+	ID          pgtype.UUID
+	ViolationID pgtype.UUID
+	UserID      int64
+	Value       string
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+	RequestID   pgtype.UUID
 }

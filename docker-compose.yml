@@ -16,29 +16,4 @@ services:
       timeout: 3s
       retries: 10
 
-  server:
-    build:
-      context: ./Server
-      dockerfile: Dockerfile
-    container_name: gw-server
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      # Database
-      DATABASE_URL: postgres://gwuser:gwpass@db:5432/gwdb?sslmode=disable
-      # JWT/secrets (replace for production)
-      STORE_SECRET: dev_store_secret_please_change
-      ACCESS_TOKEN_SECRET: dev_access_secret_please_change
-      REFRESH_TOKEN_SECRET: dev_refresh_secret_please_change
-      # Optional OAuth settings (fill with real values or use .env overrides)
-      CLIENT_ID_YANDEX: ""
-      CLIENT_SECRET_YANDEX: ""
-      CLIENT_ID_GOOGLE: ""
-      CLIENT_SECRET_GOOGLE: ""
-      APP_ROOT: http://localhost:8090
-    ports:
-      - "8090:8090"
-    restart: unless-stopped
-
 

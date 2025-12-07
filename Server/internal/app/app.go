@@ -83,7 +83,7 @@ func (a *App) ListenAndServe() error {
 	a.mux.Handle(a.config.path.exchange, appHttp.NewExchangeHandler(a.store, a.config.path.exchange, a.pokerService))
 	a.mux.Handle(a.config.path.refreshToken, appHttp.NewRefreshTokenHandler(a.pokerService, a.config.path.refreshToken, a.store))
 	a.mux.Handle(a.config.path.listViolations, appHttp.NewListViolationsHandler(a.config.path.listViolations, a.pokerService))
-	a.mux.Handle(a.config.path.getViolation, appHttp.NewGetViolationHandler(a.config.path.getViolation, a.pokerService, a.uploader))
+	a.mux.Handle(a.config.path.getViolation, middleware.NewAuthMiddleware(appHttp.NewGetViolationHandler(a.config.path.getViolation, a.pokerService, a.uploader), a.store, a.pokerService))
 	a.mux.Handle(a.config.path.getViolationRequest, appHttp.NewGetViolationRequestHandler(a.config.path.getViolationRequest, a.pokerService, a.uploader))
 	a.mux.Handle(a.config.path.createViolation, middleware.NewAuthMiddleware(appHttp.NewCreateViolationHandler(a.store, a.config.path.createViolation, a.pokerService, a.uploader, a.config.sectrets.maxPhotosPerViolation), a.store, a.pokerService))
 	a.mux.Handle(a.config.path.closeViolationRequest, middleware.NewAuthMiddleware(appHttp.NewCloseViolationRequestHandler(a.store, a.config.path.closeViolationRequest, a.pokerService, a.uploader, a.config.sectrets.maxPhotosPerViolation), a.store, a.pokerService))
@@ -92,6 +92,33 @@ func (a *App) ListenAndServe() error {
 	a.mux.Handle(a.config.path.postViolationChatMessage, middleware.NewAuthMiddleware(appHttp.NewPostViolationChatMessageHandler(a.config.path.postViolationChatMessage, a.pokerService), a.store, a.pokerService))
 	a.mux.Handle(a.config.path.updateViolationChatMessage, middleware.NewAuthMiddleware(appHttp.NewUpdateViolationChatMessageHandler(a.config.path.updateViolationChatMessage, a.pokerService), a.store, a.pokerService))
 	a.mux.Handle(a.config.path.deleteViolationChatMessage, middleware.NewAuthMiddleware(appHttp.NewDeleteViolationChatMessageHandler(a.config.path.deleteViolationChatMessage, a.pokerService), a.store, a.pokerService))
+	a.mux.Handle(a.config.path.getViolationVote, appHttp.NewGetViolationVoteHandler(a.config.path.getViolationVote, a.pokerService))
+	a.mux.Handle(a.config.path.postViolationVote, middleware.NewAuthMiddleware(appHttp.NewPostViolationVoteHandler(a.config.path.postViolationVote, a.pokerService), a.store, a.pokerService))
+	a.mux.Handle(a.config.path.postViolationComplaint, middleware.NewAuthMiddleware(appHttp.NewPostViolationComplaintHandler(a.config.path.postViolationComplaint, a.pokerService), a.store, a.pokerService))
+
+	a.mux.Handle(
+		a.config.path.postViolationRequestVote,
+		middleware.NewAuthMiddleware(
+			appHttp.NewPostViolationRequestVoteHandler(
+				a.config.path.postViolationRequestVote,
+				a.pokerService,
+			),
+			a.store,
+			a.pokerService,
+		),
+	)
+
+	a.mux.Handle(
+		a.config.path.postViolationRequestComplaint,
+		middleware.NewAuthMiddleware(
+			appHttp.NewPostViolationRequestComplaintHandler(
+				a.config.path.postViolationRequestComplaint,
+				a.pokerService,
+			),
+			a.store,
+			a.pokerService,
+		),
+	)
 	fmt.Println("start server")
 
 	return a.server.ListenAndServe()
@@ -120,7 +147,7 @@ func NewApp(ctx context.Context, config config, dbConn *pgxpool.Pool) (*App, err
 	repo := repository.NewPokerRepository(dbConn)
 
 	// Build token services
-	accessTokenService := tokenservice.NewtokenService([]byte(config.sectrets.accessTokenSecret), 5*time.Second, model.Access_Token_Type)
+	accessTokenService := tokenservice.NewtokenService([]byte(config.sectrets.accessTokenSecret), 1*time.Hour, model.Access_Token_Type)
 	refreshTokenService := tokenservice.NewtokenService([]byte(config.sectrets.refreshTokenSecret), 30*24*time.Hour, model.Refresh_Token_Type)
 
 	// Build providers user data map from config

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/inzarubin80/Server/internal/app/defenitions"
 	"github.com/inzarubin80/Server/internal/app/uhttp"
 	"github.com/inzarubin80/Server/internal/model"
 	"github.com/inzarubin80/Server/internal/storage/objectstorage"
@@ -15,7 +16,7 @@ import (
 
 type (
 	serviceGetViolation interface {
-		GetViolationByID(ctx context.Context, id model.ViolationID) (*model.Violation, error)
+		GetViolationByID(ctx context.Context, id model.ViolationID, userID model.UserID) (*model.Violation, error)
 	}
 
 	GetViolationHandler struct {
@@ -63,7 +64,15 @@ func (h *GetViolationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	violation, err := h.service.GetViolationByID(r.Context(), violationID)
+	ctx := r.Context()
+
+	userID, ok := ctx.Value(defenitions.UserID).(model.UserID)
+	if !ok || userID == 0 {
+		uhttp.SendErrorResponse(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	violation, err := h.service.GetViolationByID(ctx, violationID, userID)
 	if err != nil {
 		if errors.Is(err, model.ErrorNotFound) {
 			uhttp.SendErrorResponse(w, http.StatusNotFound, "violation not found")
@@ -89,6 +98,9 @@ func (h *GetViolationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		Comment         string          `json:"comment,omitempty"`
 		CreatedAt       time.Time       `json:"created_at"`
 		Photos          []PhotoResponse `json:"photos"`
+		Likes           int64           `json:"likes"`
+		Dislikes        int64           `json:"dislikes"`
+		UserVote        string          `json:"user_vote"`
 	}
 
 	// Transform requests with public URLs for photos
@@ -131,6 +143,9 @@ func (h *GetViolationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 			Comment:         req.Comment,
 			CreatedAt:       req.CreatedAt,
 			Photos:          requestPhotos,
+			Likes:           req.Likes,
+			Dislikes:        req.Dislikes,
+			UserVote:        req.UserVote,
 		})
 	}
 

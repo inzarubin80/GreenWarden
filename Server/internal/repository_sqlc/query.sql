@@ -101,4 +101,80 @@ SET status = $2, updated_at = NOW()
 WHERE id = $1
 RETURNING *;
 
+-- Violation chat messages
+
+-- name: CreateViolationChatMessage :one
+INSERT INTO violation_chat_messages (id, violation_id, user_id, text, is_system)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: ListViolationChatMessages :many
+SELECT *
+FROM violation_chat_messages
+WHERE violation_id = $1
+ORDER BY created_at ASC, id ASC
+LIMIT $2 OFFSET $3;
+
+-- name: UpdateViolationChatMessage :one
+UPDATE violation_chat_messages
+SET text = $1, updated_at = NOW()
+WHERE id = $2 AND user_id = $3 AND is_system = FALSE
+RETURNING *;
+
+-- name: DeleteViolationChatMessage :one
+DELETE FROM violation_chat_messages
+WHERE id = $1 AND user_id = $2 AND is_system = FALSE
+RETURNING violation_id;
+
+-- Violation votes
+
+-- name: UpsertViolationVote :one
+INSERT INTO violation_votes (id, violation_id, user_id, value)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (violation_id, user_id) DO UPDATE
+SET value = EXCLUDED.value, updated_at = NOW()
+RETURNING *;
+
+-- name: UpsertViolationRequestVote :one
+INSERT INTO violation_votes (id, violation_id, request_id, user_id, value)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (request_id, user_id) DO UPDATE
+SET value = EXCLUDED.value,
+    updated_at = NOW(),
+    request_id = EXCLUDED.request_id
+RETURNING *;
+
+-- name: DeleteViolationVote :exec
+DELETE FROM violation_votes
+WHERE violation_id = $1 AND user_id = $2;
+
+-- name: GetViolationVotesAggregated :one
+SELECT
+    violation_id,
+    COALESCE(sum(CASE WHEN value = 'like' THEN 1 ELSE 0 END), 0)   AS likes,
+    COALESCE(sum(CASE WHEN value = 'dislike' THEN 1 ELSE 0 END), 0) AS dislikes,
+    COALESCE(
+        max(
+            CASE
+                WHEN user_id = $2 THEN value
+                ELSE NULL
+            END
+        ),
+        ''
+    ) AS user_vote
+FROM violation_votes
+WHERE violation_id = $1
+GROUP BY violation_id;
+
+-- Violation complaints
+
+-- name: CreateViolationComplaint :one
+INSERT INTO violation_complaints (id, violation_id, user_id, reason, message)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: CreateViolationRequestComplaint :one
+INSERT INTO violation_complaints (id, violation_id, request_id, user_id, reason, message)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
 

@@ -24,6 +24,8 @@ type (
 		getComents, addComent, setVotingTask,
 		getVotingControlState, ws, login, exchange, createViolation, listViolations, getViolation, getViolationRequest, closeViolationRequest, session, refreshToken, logOut, getProviders,
 		violationChatWS, getViolationChat, postViolationChatMessage, updateViolationChatMessage, deleteViolationChatMessage,
+		getViolationVote, postViolationVote, postViolationComplaint,
+		postViolationRequestVote, postViolationRequestComplaint,
 		ping, vote, getUserEstimates, setVotingControlState, setUserName, getUser, setUserSettings, getLastSession, deletePoker string
 	}
 
@@ -155,6 +157,12 @@ func NewConfig(opts Options) config {
 			postViolationChatMessage:   "POST /api/violations/{id}/chat/messages",
 			updateViolationChatMessage: "PATCH /api/violations/{id}/chat/messages/{message_id}",
 			deleteViolationChatMessage: "DELETE /api/violations/{id}/chat/messages/{message_id}",
+
+			getViolationVote:              "GET /api/violations/{id}/vote",
+			postViolationVote:             "POST /api/violations/{id}/vote",
+			postViolationComplaint:        "POST /api/violations/{id}/complaints",
+			postViolationRequestVote:      "POST /api/violation-requests/{id}/vote",
+			postViolationRequestComplaint: "POST /api/violation-requests/{id}/complaints",
 
 			getLastSession: fmt.Sprintf("GET	/api/sessions/{%s}/{%s}", defenitions.Page, defenitions.PageSize),
 		},

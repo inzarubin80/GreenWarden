@@ -198,6 +198,80 @@ func (q *Queries) CreateViolation(ctx context.Context, arg *CreateViolationParam
 	return &i, err
 }
 
+const createViolationChatMessage = `-- name: CreateViolationChatMessage :one
+
+INSERT INTO violation_chat_messages (id, violation_id, user_id, text, is_system)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, violation_id, user_id, text, is_system, created_at, updated_at
+`
+
+type CreateViolationChatMessageParams struct {
+	ID          pgtype.UUID
+	ViolationID pgtype.UUID
+	UserID      int64
+	Text        string
+	IsSystem    bool
+}
+
+// Violation chat messages
+func (q *Queries) CreateViolationChatMessage(ctx context.Context, arg *CreateViolationChatMessageParams) (*ViolationChatMessage, error) {
+	row := q.db.QueryRow(ctx, createViolationChatMessage,
+		arg.ID,
+		arg.ViolationID,
+		arg.UserID,
+		arg.Text,
+		arg.IsSystem,
+	)
+	var i ViolationChatMessage
+	err := row.Scan(
+		&i.ID,
+		&i.ViolationID,
+		&i.UserID,
+		&i.Text,
+		&i.IsSystem,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const createViolationComplaint = `-- name: CreateViolationComplaint :one
+
+INSERT INTO violation_complaints (id, violation_id, user_id, reason, message)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, violation_id, user_id, reason, message, created_at, request_id
+`
+
+type CreateViolationComplaintParams struct {
+	ID          pgtype.UUID
+	ViolationID pgtype.UUID
+	UserID      int64
+	Reason      *string
+	Message     *string
+}
+
+// Violation complaints
+func (q *Queries) CreateViolationComplaint(ctx context.Context, arg *CreateViolationComplaintParams) (*ViolationComplaint, error) {
+	row := q.db.QueryRow(ctx, createViolationComplaint,
+		arg.ID,
+		arg.ViolationID,
+		arg.UserID,
+		arg.Reason,
+		arg.Message,
+	)
+	var i ViolationComplaint
+	err := row.Scan(
+		&i.ID,
+		&i.ViolationID,
+		&i.UserID,
+		&i.Reason,
+		&i.Message,
+		&i.CreatedAt,
+		&i.RequestID,
+	)
+	return &i, err
+}
+
 const createViolationRequest = `-- name: CreateViolationRequest :one
 
 INSERT INTO violation_requests (id, violation_id, status, created_by_user_id, comment)
@@ -233,6 +307,76 @@ func (q *Queries) CreateViolationRequest(ctx context.Context, arg *CreateViolati
 		&i.UpdatedAt,
 	)
 	return &i, err
+}
+
+const createViolationRequestComplaint = `-- name: CreateViolationRequestComplaint :one
+INSERT INTO violation_complaints (id, violation_id, request_id, user_id, reason, message)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, violation_id, user_id, reason, message, created_at, request_id
+`
+
+type CreateViolationRequestComplaintParams struct {
+	ID          pgtype.UUID
+	ViolationID pgtype.UUID
+	RequestID   pgtype.UUID
+	UserID      int64
+	Reason      *string
+	Message     *string
+}
+
+func (q *Queries) CreateViolationRequestComplaint(ctx context.Context, arg *CreateViolationRequestComplaintParams) (*ViolationComplaint, error) {
+	row := q.db.QueryRow(ctx, createViolationRequestComplaint,
+		arg.ID,
+		arg.ViolationID,
+		arg.RequestID,
+		arg.UserID,
+		arg.Reason,
+		arg.Message,
+	)
+	var i ViolationComplaint
+	err := row.Scan(
+		&i.ID,
+		&i.ViolationID,
+		&i.UserID,
+		&i.Reason,
+		&i.Message,
+		&i.CreatedAt,
+		&i.RequestID,
+	)
+	return &i, err
+}
+
+const deleteViolationChatMessage = `-- name: DeleteViolationChatMessage :one
+DELETE FROM violation_chat_messages
+WHERE id = $1 AND user_id = $2 AND is_system = FALSE
+RETURNING violation_id
+`
+
+type DeleteViolationChatMessageParams struct {
+	ID     pgtype.UUID
+	UserID int64
+}
+
+func (q *Queries) DeleteViolationChatMessage(ctx context.Context, arg *DeleteViolationChatMessageParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, deleteViolationChatMessage, arg.ID, arg.UserID)
+	var violation_id pgtype.UUID
+	err := row.Scan(&violation_id)
+	return violation_id, err
+}
+
+const deleteViolationVote = `-- name: DeleteViolationVote :exec
+DELETE FROM violation_votes
+WHERE violation_id = $1 AND user_id = $2
+`
+
+type DeleteViolationVoteParams struct {
+	ViolationID pgtype.UUID
+	UserID      int64
+}
+
+func (q *Queries) DeleteViolationVote(ctx context.Context, arg *DeleteViolationVoteParams) error {
+	_, err := q.db.Exec(ctx, deleteViolationVote, arg.ViolationID, arg.UserID)
+	return err
 }
 
 const getPhotosByViolationID = `-- name: GetPhotosByViolationID :many
@@ -436,6 +580,91 @@ func (q *Queries) GetViolationRequestsByViolationID(ctx context.Context, violati
 	return items, nil
 }
 
+const getViolationVotesAggregated = `-- name: GetViolationVotesAggregated :one
+SELECT
+    violation_id,
+    COALESCE(sum(CASE WHEN value = 'like' THEN 1 ELSE 0 END), 0)   AS likes,
+    COALESCE(sum(CASE WHEN value = 'dislike' THEN 1 ELSE 0 END), 0) AS dislikes,
+    COALESCE(
+        max(
+            CASE
+                WHEN user_id = $2 THEN value
+                ELSE NULL
+            END
+        ),
+        ''
+    ) AS user_vote
+FROM violation_votes
+WHERE violation_id = $1
+GROUP BY violation_id
+`
+
+type GetViolationVotesAggregatedParams struct {
+	ViolationID pgtype.UUID
+	UserID      int64
+}
+
+type GetViolationVotesAggregatedRow struct {
+	ViolationID pgtype.UUID
+	Likes       interface{}
+	Dislikes    interface{}
+	UserVote    interface{}
+}
+
+func (q *Queries) GetViolationVotesAggregated(ctx context.Context, arg *GetViolationVotesAggregatedParams) (*GetViolationVotesAggregatedRow, error) {
+	row := q.db.QueryRow(ctx, getViolationVotesAggregated, arg.ViolationID, arg.UserID)
+	var i GetViolationVotesAggregatedRow
+	err := row.Scan(
+		&i.ViolationID,
+		&i.Likes,
+		&i.Dislikes,
+		&i.UserVote,
+	)
+	return &i, err
+}
+
+const listViolationChatMessages = `-- name: ListViolationChatMessages :many
+SELECT id, violation_id, user_id, text, is_system, created_at, updated_at
+FROM violation_chat_messages
+WHERE violation_id = $1
+ORDER BY created_at ASC, id ASC
+LIMIT $2 OFFSET $3
+`
+
+type ListViolationChatMessagesParams struct {
+	ViolationID pgtype.UUID
+	Limit       int32
+	Offset      int32
+}
+
+func (q *Queries) ListViolationChatMessages(ctx context.Context, arg *ListViolationChatMessagesParams) ([]*ViolationChatMessage, error) {
+	rows, err := q.db.Query(ctx, listViolationChatMessages, arg.ViolationID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ViolationChatMessage
+	for rows.Next() {
+		var i ViolationChatMessage
+		if err := rows.Scan(
+			&i.ID,
+			&i.ViolationID,
+			&i.UserID,
+			&i.Text,
+			&i.IsSystem,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listViolations = `-- name: ListViolations :many
 SELECT id, user_id, type, description, lat, lng, status, confirmations_count, created_at, updated_at
 FROM violations
@@ -531,6 +760,34 @@ func (q *Queries) UpdateUserName(ctx context.Context, arg *UpdateUserNameParams)
 	return &i, err
 }
 
+const updateViolationChatMessage = `-- name: UpdateViolationChatMessage :one
+UPDATE violation_chat_messages
+SET text = $1, updated_at = NOW()
+WHERE id = $2 AND user_id = $3 AND is_system = FALSE
+RETURNING id, violation_id, user_id, text, is_system, created_at, updated_at
+`
+
+type UpdateViolationChatMessageParams struct {
+	Text   string
+	ID     pgtype.UUID
+	UserID int64
+}
+
+func (q *Queries) UpdateViolationChatMessage(ctx context.Context, arg *UpdateViolationChatMessageParams) (*ViolationChatMessage, error) {
+	row := q.db.QueryRow(ctx, updateViolationChatMessage, arg.Text, arg.ID, arg.UserID)
+	var i ViolationChatMessage
+	err := row.Scan(
+		&i.ID,
+		&i.ViolationID,
+		&i.UserID,
+		&i.Text,
+		&i.IsSystem,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
 const updateViolationStatus = `-- name: UpdateViolationStatus :one
 UPDATE violations
 SET status = $2, updated_at = NOW()
@@ -557,6 +814,82 @@ func (q *Queries) UpdateViolationStatus(ctx context.Context, arg *UpdateViolatio
 		&i.ConfirmationsCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const upsertViolationRequestVote = `-- name: UpsertViolationRequestVote :one
+INSERT INTO violation_votes (id, violation_id, request_id, user_id, value)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (request_id, user_id) DO UPDATE
+SET value = EXCLUDED.value,
+    updated_at = NOW(),
+    request_id = EXCLUDED.request_id
+RETURNING id, violation_id, user_id, value, created_at, updated_at, request_id
+`
+
+type UpsertViolationRequestVoteParams struct {
+	ID          pgtype.UUID
+	ViolationID pgtype.UUID
+	RequestID   pgtype.UUID
+	UserID      int64
+	Value       string
+}
+
+func (q *Queries) UpsertViolationRequestVote(ctx context.Context, arg *UpsertViolationRequestVoteParams) (*ViolationVote, error) {
+	row := q.db.QueryRow(ctx, upsertViolationRequestVote,
+		arg.ID,
+		arg.ViolationID,
+		arg.RequestID,
+		arg.UserID,
+		arg.Value,
+	)
+	var i ViolationVote
+	err := row.Scan(
+		&i.ID,
+		&i.ViolationID,
+		&i.UserID,
+		&i.Value,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.RequestID,
+	)
+	return &i, err
+}
+
+const upsertViolationVote = `-- name: UpsertViolationVote :one
+
+INSERT INTO violation_votes (id, violation_id, user_id, value)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (violation_id, user_id) DO UPDATE
+SET value = EXCLUDED.value, updated_at = NOW()
+RETURNING id, violation_id, user_id, value, created_at, updated_at, request_id
+`
+
+type UpsertViolationVoteParams struct {
+	ID          pgtype.UUID
+	ViolationID pgtype.UUID
+	UserID      int64
+	Value       string
+}
+
+// Violation votes
+func (q *Queries) UpsertViolationVote(ctx context.Context, arg *UpsertViolationVoteParams) (*ViolationVote, error) {
+	row := q.db.QueryRow(ctx, upsertViolationVote,
+		arg.ID,
+		arg.ViolationID,
+		arg.UserID,
+		arg.Value,
+	)
+	var i ViolationVote
+	err := row.Scan(
+		&i.ID,
+		&i.ViolationID,
+		&i.UserID,
+		&i.Value,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.RequestID,
 	)
 	return &i, err
 }

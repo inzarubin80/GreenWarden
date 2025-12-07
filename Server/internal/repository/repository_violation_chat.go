@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/inzarubin80/Server/internal/model"
+	sqlc_repository "github.com/inzarubin80/Server/internal/repository_sqlc"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // CreateViolationChatMessage creates a new chat message for a violation.
@@ -22,28 +24,39 @@ func (r *Repository) CreateViolationChatMessage(ctx context.Context, violationID
 
 	msgUUID := uuid.New()
 
-	query := `
-		INSERT INTO violation_chat_messages (id, violation_id, user_id, text, is_system)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING created_at, updated_at
-	`
+	reposqlsc := sqlc_repository.New(r.conn)
 
-	var (
-		createdAt time.Time
-		updatedAt *time.Time
-	)
-	if err := r.conn.QueryRow(ctx, query, msgUUID, vUUID, int64(userID), text, isSystem).Scan(&createdAt, &updatedAt); err != nil {
+	arg := &sqlc_repository.CreateViolationChatMessageParams{
+		ID:          pgtype.UUID{Bytes: msgUUID, Valid: true},
+		ViolationID: pgtype.UUID{Bytes: vUUID, Valid: true},
+		UserID:      int64(userID),
+		Text:        text,
+		IsSystem:    isSystem,
+	}
+
+	dbMsg, err := reposqlsc.CreateViolationChatMessage(ctx, arg)
+	if err != nil {
 		return nil, err
 	}
 
+	createdAt := time.Now()
+	if dbMsg.CreatedAt.Valid {
+		createdAt = dbMsg.CreatedAt.Time
+	}
+	var updatedAtPtr *time.Time
+	if dbMsg.UpdatedAt.Valid {
+		t := dbMsg.UpdatedAt.Time
+		updatedAtPtr = &t
+	}
+
 	return &model.ViolationChatMessage{
-		ID:          msgUUID.String(),
-		ViolationID: violationID,
-		UserID:      userID,
-		Text:        text,
-		IsSystem:    isSystem,
+		ID:          uuid.UUID(dbMsg.ID.Bytes).String(),
+		ViolationID: model.ViolationID(uuid.UUID(dbMsg.ViolationID.Bytes).String()),
+		UserID:      model.UserID(dbMsg.UserID),
+		Text:        dbMsg.Text,
+		IsSystem:    dbMsg.IsSystem,
 		CreatedAt:   createdAt,
-		UpdatedAt:   updatedAt,
+		UpdatedAt:   updatedAtPtr,
 	}, nil
 }
 
@@ -64,7 +77,7 @@ func (r *Repository) ListViolationChatMessages(ctx context.Context, violationID 
 		return nil, 0, fmt.Errorf("invalid violation ID: %w", err)
 	}
 
-	// count total
+	// count total (простая агрегация, без sqlc)
 	var total int64
 	countSQL := `SELECT count(1) FROM violation_chat_messages WHERE violation_id = $1`
 	if err := r.conn.QueryRow(ctx, countSQL, vUUID).Scan(&total); err != nil {
@@ -72,48 +85,40 @@ func (r *Repository) ListViolationChatMessages(ctx context.Context, violationID 
 	}
 
 	offset := (page - 1) * pageSize
-	listSQL := `
-		SELECT id, violation_id, user_id, text, is_system, created_at, updated_at
-		FROM violation_chat_messages
-		WHERE violation_id = $1
-		ORDER BY created_at ASC, id ASC
-		LIMIT $2 OFFSET $3
-	`
+	reposqlsc := sqlc_repository.New(r.conn)
 
-	rows, err := r.conn.Query(ctx, listSQL, vUUID, int32(pageSize), int32(offset))
+	dbMsgs, err := reposqlsc.ListViolationChatMessages(ctx, &sqlc_repository.ListViolationChatMessagesParams{
+		ViolationID: pgtype.UUID{Bytes: vUUID, Valid: true},
+		Limit:       int32(pageSize),
+		Offset:      int32(offset),
+	})
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
 
 	var out []*model.ViolationChatMessage
-	for rows.Next() {
-		var (
-			idUUID    uuid.UUID
-			vIDUUID   uuid.UUID
-			uID       int64
-			text      string
-			isSystem  bool
-			created   time.Time
-			updatedAt *time.Time
-		)
-
-		if err := rows.Scan(&idUUID, &vIDUUID, &uID, &text, &isSystem, &created, &updatedAt); err != nil {
-			return nil, 0, err
+	for _, m := range dbMsgs {
+		if m == nil {
+			continue
 		}
-
+		createdAt := time.Now()
+		if m.CreatedAt.Valid {
+			createdAt = m.CreatedAt.Time
+		}
+		var updatedAtPtr *time.Time
+		if m.UpdatedAt.Valid {
+			t := m.UpdatedAt.Time
+			updatedAtPtr = &t
+		}
 		out = append(out, &model.ViolationChatMessage{
-			ID:          idUUID.String(),
-			ViolationID: violationID,
-			UserID:      model.UserID(uID),
-			Text:        text,
-			IsSystem:    isSystem,
-			CreatedAt:   created,
-			UpdatedAt:   updatedAt,
+			ID:          uuid.UUID(m.ID.Bytes).String(),
+			ViolationID: model.ViolationID(uuid.UUID(m.ViolationID.Bytes).String()),
+			UserID:      model.UserID(m.UserID),
+			Text:        m.Text,
+			IsSystem:    m.IsSystem,
+			CreatedAt:   createdAt,
+			UpdatedAt:   updatedAtPtr,
 		})
-	}
-	if err := rows.Err(); err != nil {
-		return nil, 0, err
 	}
 
 	return out, total, nil
@@ -129,36 +134,37 @@ func (r *Repository) UpdateViolationChatMessage(ctx context.Context, messageID s
 		return nil, fmt.Errorf("invalid message ID: %w", err)
 	}
 
-	query := `
-		UPDATE violation_chat_messages
-		SET text = $1, updated_at = NOW()
-		WHERE id = $2 AND user_id = $3 AND is_system = FALSE
-		RETURNING id, violation_id, user_id, text, is_system, created_at, updated_at
-	`
+	reposqlsc := sqlc_repository.New(r.conn)
 
-	var (
-		idUUID    uuid.UUID
-		vIDUUID   uuid.UUID
-		uID       int64
-		isSystem  bool
-		createdAt time.Time
-		updatedAt *time.Time
-	)
+	arg := &sqlc_repository.UpdateViolationChatMessageParams{
+		Text:   text,
+		ID:     pgtype.UUID{Bytes: msgUUID, Valid: true},
+		UserID: int64(userID),
+	}
 
-	if err := r.conn.QueryRow(ctx, query, text, msgUUID, int64(userID)).Scan(
-		&idUUID, &vIDUUID, &uID, &text, &isSystem, &createdAt, &updatedAt,
-	); err != nil {
+	dbMsg, err := reposqlsc.UpdateViolationChatMessage(ctx, arg)
+	if err != nil {
 		return nil, err
 	}
 
+	createdAt := time.Now()
+	if dbMsg.CreatedAt.Valid {
+		createdAt = dbMsg.CreatedAt.Time
+	}
+	var updatedAtPtr *time.Time
+	if dbMsg.UpdatedAt.Valid {
+		t := dbMsg.UpdatedAt.Time
+		updatedAtPtr = &t
+	}
+
 	return &model.ViolationChatMessage{
-		ID:          idUUID.String(),
-		ViolationID: model.ViolationID(vIDUUID.String()),
-		UserID:      model.UserID(uID),
-		Text:        text,
-		IsSystem:    isSystem,
+		ID:          uuid.UUID(dbMsg.ID.Bytes).String(),
+		ViolationID: model.ViolationID(uuid.UUID(dbMsg.ViolationID.Bytes).String()),
+		UserID:      model.UserID(dbMsg.UserID),
+		Text:        dbMsg.Text,
+		IsSystem:    dbMsg.IsSystem,
 		CreatedAt:   createdAt,
-		UpdatedAt:   updatedAt,
+		UpdatedAt:   updatedAtPtr,
 	}, nil
 }
 
@@ -169,18 +175,17 @@ func (r *Repository) DeleteViolationChatMessage(ctx context.Context, messageID s
 		return "", fmt.Errorf("invalid message ID: %w", err)
 	}
 
-	query := `
-		DELETE FROM violation_chat_messages
-		WHERE id = $1 AND user_id = $2 AND is_system = FALSE
-		RETURNING violation_id
-	`
+	reposqlsc := sqlc_repository.New(r.conn)
 
-	var vID uuid.UUID
-	if err := r.conn.QueryRow(ctx, query, msgUUID, int64(userID)).Scan(&vID); err != nil {
+	arg := &sqlc_repository.DeleteViolationChatMessageParams{
+		ID:     pgtype.UUID{Bytes: msgUUID, Valid: true},
+		UserID: int64(userID),
+	}
+
+	vID, err := reposqlsc.DeleteViolationChatMessage(ctx, arg)
+	if err != nil {
 		return "", err
 	}
 
-	return model.ViolationID(vID.String()), nil
+	return model.ViolationID(uuid.UUID(vID.Bytes).String()), nil
 }
-
-

@@ -27,7 +27,7 @@ type (
 		CreateViolation(ctx context.Context, userID model.UserID, vType model.ViolationType, description string, lat, lng float64) (*model.Violation, error)
 		AddViolationPhoto(ctx context.Context, violationID string, url string, thumbURL string) (*model.ViolationPhoto, error)
 		ListViolations(ctx context.Context, f *model.ListViolationsFilters) ([]*model.Violation, int64, error)
-		GetViolationByID(ctx context.Context, id model.ViolationID) (*model.Violation, error)
+		GetViolationByID(ctx context.Context, id model.ViolationID, userID model.UserID) (*model.Violation, error)
 		GetUser(ctx context.Context, userID model.UserID) (*model.User, error)
 		CreateViolationRequest(ctx context.Context, violationID model.ViolationID, status model.ViolationRequestStatus, userID model.UserID, comment string) (*model.ViolationRequest, error)
 		AddRequestPhoto(ctx context.Context, requestID string, url string, thumbURL string) (*model.ViolationRequestPhoto, error)
@@ -39,6 +39,15 @@ type (
 		ListViolationChatMessages(ctx context.Context, violationID model.ViolationID, page, pageSize int) ([]*model.ViolationChatMessage, int64, error)
 		UpdateViolationChatMessage(ctx context.Context, messageID string, userID model.UserID, text string) (*model.ViolationChatMessage, error)
 		DeleteViolationChatMessage(ctx context.Context, messageID string, userID model.UserID) (model.ViolationID, error)
+
+		// Violation votes and complaints
+		SetViolationVote(ctx context.Context, violationID model.ViolationID, userID model.UserID, value string) (*model.ViolationVotes, error)
+		SetViolationRequestVote(ctx context.Context, violationID model.ViolationID, requestID string, userID model.UserID, value string) (*model.ViolationVotes, error)
+		DeleteViolationVote(ctx context.Context, violationID model.ViolationID, userID model.UserID) (*model.ViolationVotes, error)
+		GetViolationVotes(ctx context.Context, violationID model.ViolationID, userID model.UserID) (*model.ViolationVotes, error)
+		GetViolationRequestVotes(ctx context.Context, violationID model.ViolationID, requestID string, userID model.UserID) (*model.ViolationVotes, error)
+		CreateViolationComplaint(ctx context.Context, violationID model.ViolationID, userID model.UserID, reason, message string) (*model.ViolationComplaint, error)
+		CreateViolationRequestComplaint(ctx context.Context, violationID model.ViolationID, requestID string, userID model.UserID, reason, message string) (*model.ViolationComplaint, error)
 	}
 
 	TokenService interface {
