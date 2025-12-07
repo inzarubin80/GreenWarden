@@ -133,6 +133,25 @@ type PaginatedViolations struct {
 	Total    int64        `json:"total"`
 }
 
+// Violation chat
+type ViolationChatMessage struct {
+	ID          string      `json:"id"`
+	ViolationID ViolationID `json:"violation_id"`
+	UserID      UserID      `json:"user_id"`
+	UserName    string      `json:"user_name,omitempty"`
+	Text        string      `json:"text"`
+	IsSystem    bool        `json:"is_system"`
+	CreatedAt   time.Time   `json:"created_at"`
+	UpdatedAt   *time.Time  `json:"updated_at,omitempty"`
+}
+
+type PaginatedViolationChatMessages struct {
+	Items    []*ViolationChatMessage `json:"items"`
+	Page     int                     `json:"page"`
+	PageSize int                     `json:"page_size"`
+	Total    int64                   `json:"total"`
+}
+
 func (p PokerID) UUID() pgtype.UUID {
 	return pgtype.UUID{
 		Bytes: uuid.MustParse(string(p)),

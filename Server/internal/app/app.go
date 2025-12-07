@@ -60,6 +60,18 @@ func (h *hubAdapter) AddMessageForUser(pokerID model.PokerID, userID model.UserI
 func (h *hubAdapter) GetActiveUsersID(pokerID model.PokerID) ([]model.UserID, error) {
 	return []model.UserID{}, nil
 }
+func (h *hubAdapter) BroadcastViolationMessage(violationID model.ViolationID, payload any) error {
+	if h.Hub == nil {
+		return nil
+	}
+	return h.Hub.BroadcastViolationMessage(violationID, payload)
+}
+func (h *hubAdapter) SendViolationMessageToUser(violationID model.ViolationID, userID model.UserID, payload any) error {
+	if h.Hub == nil {
+		return nil
+	}
+	return h.Hub.SendViolationMessageToUser(violationID, userID, payload)
+}
 
 func (a *App) ListenAndServe() error {
 	go a.hub.Run()
@@ -75,6 +87,11 @@ func (a *App) ListenAndServe() error {
 	a.mux.Handle(a.config.path.getViolationRequest, appHttp.NewGetViolationRequestHandler(a.config.path.getViolationRequest, a.pokerService, a.uploader))
 	a.mux.Handle(a.config.path.createViolation, middleware.NewAuthMiddleware(appHttp.NewCreateViolationHandler(a.store, a.config.path.createViolation, a.pokerService, a.uploader, a.config.sectrets.maxPhotosPerViolation), a.store, a.pokerService))
 	a.mux.Handle(a.config.path.closeViolationRequest, middleware.NewAuthMiddleware(appHttp.NewCloseViolationRequestHandler(a.store, a.config.path.closeViolationRequest, a.pokerService, a.uploader, a.config.sectrets.maxPhotosPerViolation), a.store, a.pokerService))
+	a.mux.Handle(a.config.path.violationChatWS, appHttp.NewViolationChatWSHandler(a.config.path.violationChatWS, a.pokerService, a.hub))
+	a.mux.Handle(a.config.path.getViolationChat, appHttp.NewGetViolationChatHandler(a.config.path.getViolationChat, a.pokerService))
+	a.mux.Handle(a.config.path.postViolationChatMessage, middleware.NewAuthMiddleware(appHttp.NewPostViolationChatMessageHandler(a.config.path.postViolationChatMessage, a.pokerService), a.store, a.pokerService))
+	a.mux.Handle(a.config.path.updateViolationChatMessage, middleware.NewAuthMiddleware(appHttp.NewUpdateViolationChatMessageHandler(a.config.path.updateViolationChatMessage, a.pokerService), a.store, a.pokerService))
+	a.mux.Handle(a.config.path.deleteViolationChatMessage, middleware.NewAuthMiddleware(appHttp.NewDeleteViolationChatMessageHandler(a.config.path.deleteViolationChatMessage, a.pokerService), a.store, a.pokerService))
 	fmt.Println("start server")
 
 	return a.server.ListenAndServe()
@@ -201,12 +218,9 @@ func NewApp(ctx context.Context, config config, dbConn *pgxpool.Pool) (*App, err
 
 	corsMiddleware := cors.New(corsOptions)
 
-	// Обертываем основной обработчик: сначала CORS, потом проверка подписи для мобильных, потом логирование
+	// Обертываем основной обработчик: сначала CORS, потом логирование
 	handler := corsMiddleware.Handler(
-		middleware.NewMobileSignatureMiddleware(
-			middleware.NewLogMux(mux),
-			config.sectrets.mobileAppSecret,
-		),
+		middleware.NewLogMux(mux),
 	)
 
 	return &App{

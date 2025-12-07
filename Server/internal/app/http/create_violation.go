@@ -16,7 +16,7 @@ import (
 type (
 	createViolationService interface {
 		CreateViolation(ctx context.Context, userID model.UserID, vType model.ViolationType, description string, lat, lng float64) (*model.Violation, error)
-		CreateViolationWithPhotos(ctx context.Context, userID model.UserID, vType model.ViolationType, description string, lat, lng float64, files []*multipart.FileHeader, maxPhotos int, upload func(ctx context.Context, key string, file multipart.File, size int64, contentType string) (string, error)) (*model.Violation, error)
+		CreateViolationWithRequestPhotos(ctx context.Context, userID model.UserID, vType model.ViolationType, description string, lat, lng float64, files []*multipart.FileHeader, maxPhotos int, upload func(ctx context.Context, key string, file multipart.File, size int64, contentType string) (string, error)) (*model.Violation, error)
 	}
 
 	CreateViolationHandler struct {
@@ -58,12 +58,17 @@ func (h *CreateViolationHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		upload := func(ctx context.Context, key string, file multipart.File, size int64, contentType string) (string, error) {
 			return h.uploader.Upload(ctx, key, file, size, contentType)
 		}
-		v, err := h.service.CreateViolationWithPhotos(ctx, userID, model.ViolationType(vType), description, lat, lng, files, h.maxPhotos, upload)
+		v, err := h.service.CreateViolationWithRequestPhotos(ctx, userID, model.ViolationType(vType), description, lat, lng, files, h.maxPhotos, upload)
 		if err != nil {
 			uhttp.SendErrorResponse(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		jsonResponse(w, v)
+		resp, err := json.Marshal(v)
+		if err != nil {
+			uhttp.SendErrorResponse(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		uhttp.SendSuccessfulResponse(w, resp)
 		return
 	}
 
@@ -84,15 +89,12 @@ func (h *CreateViolationHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	jsonResponse(w, v)
-}
-
-func jsonResponse(w http.ResponseWriter, v any) {
 	resp, err := json.Marshal(v)
 	if err != nil {
 		uhttp.SendErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
 	uhttp.SendSuccessfulResponse(w, resp)
 }
 

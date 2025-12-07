@@ -23,6 +23,7 @@ type (
 		getTasks, getTask, updateTask, deleteTask,
 		getComents, addComent, setVotingTask,
 		getVotingControlState, ws, login, exchange, createViolation, listViolations, getViolation, getViolationRequest, closeViolationRequest, session, refreshToken, logOut, getProviders,
+		violationChatWS, getViolationChat, postViolationChatMessage, updateViolationChatMessage, deleteViolationChatMessage,
 		ping, vote, getUserEstimates, setVotingControlState, setUserName, getUser, setUserSettings, getLastSession, deletePoker string
 	}
 
@@ -133,21 +134,27 @@ func NewConfig(opts Options) config {
 			createPoker:  "POST	/api/poker",
 			getProviders: "GET /api/providers",
 
-			login:           "POST	/api/user/login",
-			exchange:        "POST	/api/user/exchange",
-			createViolation:      "POST	/api/violations",
-			listViolations:       "GET /api/violations",
-			getViolation:         "GET /api/violations/{id}",
-			getViolationRequest:  "GET /api/violations/{violation_id}/requests/{request_id}",
+			login:                 "POST	/api/user/login",
+			exchange:              "POST	/api/user/exchange",
+			createViolation:       "POST	/api/violations",
+			listViolations:        "GET /api/violations",
+			getViolation:          "GET /api/violations/{id}",
+			getViolationRequest:   "GET /api/violations/{violation_id}/requests/{request_id}",
 			closeViolationRequest: "POST /api/violations/{id}/close-request",
-			setUserName:     "POST	/api/user/name",
-			setUserSettings: "POST	/api/user/settings",
+			setUserName:           "POST	/api/user/name",
+			setUserSettings:       "POST	/api/user/settings",
 
 			getUser: "GET	/api/user",
 
 			refreshToken: "POST	/api/user/refresh",
 			session:      "GET		/api/user/session",
 			logOut:       "GET		/api/user/logout",
+
+			violationChatWS:            "GET /api/ws/violation-chat",
+			getViolationChat:           "GET /api/violations/{id}/chat",
+			postViolationChatMessage:   "POST /api/violations/{id}/chat/messages",
+			updateViolationChatMessage: "PATCH /api/violations/{id}/chat/messages/{message_id}",
+			deleteViolationChatMessage: "DELETE /api/violations/{id}/chat/messages/{message_id}",
 
 			getLastSession: fmt.Sprintf("GET	/api/sessions/{%s}/{%s}", defenitions.Page, defenitions.PageSize),
 		},

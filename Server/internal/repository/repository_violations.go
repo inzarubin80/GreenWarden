@@ -199,7 +199,20 @@ func (r *Repository) ListViolations(ctx context.Context, f *model.ListViolations
 	if rows.Err() != nil {
 		return nil, 0, rows.Err()
 	}
-	return out, total, nil
+	// For backward compatibility and to include request photos in the list response,
+	// load full violation details (including requests and photos) for each item.
+	fullOut := make([]*model.Violation, 0, len(out))
+	for _, v := range out {
+		fullV, err := r.GetViolationByID(ctx, v.ID)
+		if err != nil {
+			// If fetching full details fails, fall back to the basic item.
+			fullOut = append(fullOut, v)
+			continue
+		}
+		fullOut = append(fullOut, fullV)
+	}
+
+	return fullOut, total, nil
 }
 
 func (r *Repository) GetViolationByID(ctx context.Context, id model.ViolationID) (*model.Violation, error) {

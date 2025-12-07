@@ -33,6 +33,12 @@ type (
 		AddRequestPhoto(ctx context.Context, requestID string, url string, thumbURL string) (*model.ViolationRequestPhoto, error)
 		GetOpenRequestByViolationID(ctx context.Context, violationID model.ViolationID) (*model.ViolationRequest, error)
 		GetViolationRequestByID(ctx context.Context, requestID string) (*model.ViolationRequest, error)
+
+		// Violation chat
+		CreateViolationChatMessage(ctx context.Context, violationID model.ViolationID, userID model.UserID, text string, isSystem bool) (*model.ViolationChatMessage, error)
+		ListViolationChatMessages(ctx context.Context, violationID model.ViolationID, page, pageSize int) ([]*model.ViolationChatMessage, int64, error)
+		UpdateViolationChatMessage(ctx context.Context, messageID string, userID model.UserID, text string) (*model.ViolationChatMessage, error)
+		DeleteViolationChatMessage(ctx context.Context, messageID string, userID model.UserID) (model.ViolationID, error)
 	}
 
 	TokenService interface {
@@ -46,6 +52,10 @@ type (
 		AddMessage(pokerID model.PokerID, payload any) error
 		AddMessageForUser(pokerID model.PokerID, userID model.UserID, payload any) error
 		GetActiveUsersID(pokerID model.PokerID) ([]model.UserID, error)
+
+		// Violation chat
+		BroadcastViolationMessage(violationID model.ViolationID, payload any) error
+		SendViolationMessageToUser(violationID model.ViolationID, userID model.UserID, payload any) error
 	}
 )
 
