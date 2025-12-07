@@ -82,6 +82,48 @@ func (a *App) ListenAndServe() error {
 	a.mux.Handle(a.config.path.login, appHttp.NewLoginHandler(a.provadersConf, a.config.path.login, a.store))
 	a.mux.Handle(a.config.path.exchange, appHttp.NewExchangeHandler(a.store, a.config.path.exchange, a.pokerService))
 	a.mux.Handle(a.config.path.refreshToken, appHttp.NewRefreshTokenHandler(a.pokerService, a.config.path.refreshToken, a.store))
+
+	// User profile
+	a.mux.Handle(
+		a.config.path.getProfile,
+		middleware.NewAuthMiddleware(
+			appHttp.NewGetProfileHandler(a.config.path.getProfile, a.pokerService),
+			a.store,
+			a.pokerService,
+		),
+	)
+	a.mux.Handle(
+		a.config.path.updateProfile,
+		middleware.NewAuthMiddleware(
+			appHttp.NewUpdateProfileHandler(a.config.path.updateProfile, a.pokerService),
+			a.store,
+			a.pokerService,
+		),
+	)
+	a.mux.Handle(
+		a.config.path.uploadProfileAvatar,
+		middleware.NewAuthMiddleware(
+			appHttp.NewUpdateAvatarHandler(a.config.path.uploadProfileAvatar, a.pokerService, a.uploader),
+			a.store,
+			a.pokerService,
+		),
+	)
+	a.mux.Handle(
+		a.config.path.linkAuthProvider,
+		middleware.NewAuthMiddleware(
+			appHttp.NewLinkAuthProviderHandler(a.config.path.linkAuthProvider, a.pokerService),
+			a.store,
+			a.pokerService,
+		),
+	)
+	a.mux.Handle(
+		a.config.path.unlinkAuthProvider,
+		middleware.NewAuthMiddleware(
+			appHttp.NewUnlinkAuthProviderHandler(a.config.path.unlinkAuthProvider, a.pokerService),
+			a.store,
+			a.pokerService,
+		),
+	)
 	a.mux.Handle(a.config.path.listViolations, appHttp.NewListViolationsHandler(a.config.path.listViolations, a.pokerService))
 	a.mux.Handle(a.config.path.getViolation, middleware.NewAuthMiddleware(appHttp.NewGetViolationHandler(a.config.path.getViolation, a.pokerService, a.uploader), a.store, a.pokerService))
 	a.mux.Handle(a.config.path.getViolationRequest, appHttp.NewGetViolationRequestHandler(a.config.path.getViolationRequest, a.pokerService, a.uploader))

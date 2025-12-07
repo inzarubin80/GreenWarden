@@ -28,12 +28,15 @@ func (r *Repository) GetUserAuthProvidersByProviderUid(ctx context.Context, Prov
 		return nil, err
 	}
 
-	return &model.UserAuthProviders{
+	res := &model.UserAuthProviders{
 		UserID:      model.UserID(UserAuthProvider.UserID),
 		ProviderUid: UserAuthProvider.ProviderUid,
 		Provider:    UserAuthProvider.Provider,
-		Name:        *UserAuthProvider.Name,
-	}, nil
+	}
+	if UserAuthProvider.Name != nil {
+		res.Name = *UserAuthProvider.Name
+	}
+	return res, nil
 
 }
 
@@ -54,11 +57,51 @@ func (r *Repository) AddUserAuthProviders(ctx context.Context, userProfileFromPr
 		return nil, err
 	}
 
-	return &model.UserAuthProviders{
+	res := &model.UserAuthProviders{
 		UserID:      model.UserID(UserAuthProvider.UserID),
 		ProviderUid: UserAuthProvider.ProviderUid,
 		Provider:    UserAuthProvider.Provider,
-		Name:        *UserAuthProvider.Name,
-	}, nil
+	}
+	if UserAuthProvider.Name != nil {
+		res.Name = *UserAuthProvider.Name
+	}
+	return res, nil
+
+}
+
+func (r *Repository) DeleteUserAuthProvider(ctx context.Context, userID model.UserID, provider string) error {
+	reposqlsc := sqlc_repository.New(r.conn)
+	arg := &sqlc_repository.DeleteUserAuthProviderParams{
+		UserID:   int64(userID),
+		Provider: provider,
+	}
+	return reposqlsc.DeleteUserAuthProvider(ctx, arg)
+}
+
+func (r *Repository) GetUserAuthProvidersByUserID(ctx context.Context, userID model.UserID) ([]*model.UserAuthProviders, error) {
+	reposqlsc := sqlc_repository.New(r.conn)
+
+	rows, err := reposqlsc.GetUserAuthProvidersByUserID(ctx, int64(userID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return []*model.UserAuthProviders{}, nil
+		}
+		return nil, err
+	}
+
+	result := make([]*model.UserAuthProviders, 0, len(rows))
+	for _, row := range rows {
+		item := &model.UserAuthProviders{
+			UserID:      model.UserID(row.UserID),
+			ProviderUid: row.ProviderUid,
+			Provider:    row.Provider,
+		}
+		if row.Name != nil {
+			item.Name = *row.Name
+		}
+		result = append(result, item)
+	}
+
+	return result, nil
 
 }

@@ -18,6 +18,21 @@ WHERE user_id = ANY($1::bigint[]);
 SELECT * FROM users
 WHERE user_id = $1;
 
+-- name: SetUserAvatarIfEmpty :exec
+UPDATE users
+SET avatar_url = $2
+WHERE user_id = $1 AND (avatar_url IS NULL OR avatar_url = '');
+
+-- name: UpdateUserAvatar :exec
+UPDATE users
+SET avatar_url = $2
+WHERE user_id = $1;
+
+-- name: UpdateUserBoostyURL :exec
+UPDATE users
+SET boosty_url = $2
+WHERE user_id = $1;
+
 -- name: GetUserAuthProvidersByProviderUid :one
 SELECT * FROM user_auth_providers
 WHERE provider_uid = $1 AND provider = $2;
@@ -82,7 +97,20 @@ VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: GetViolationRequestsByViolationID :many
-SELECT * FROM violation_requests WHERE violation_id = $1 ORDER BY created_at;
+SELECT
+  vr.id,
+  vr.violation_id,
+  vr.status,
+  vr.created_by_user_id,
+  vr.comment,
+  vr.created_at,
+  vr.updated_at,
+  u.boosty_url AS author_boosty_url,
+  u.avatar_url AS author_avatar_url
+FROM violation_requests vr
+LEFT JOIN users u ON vr.created_by_user_id = u.user_id
+WHERE vr.violation_id = $1
+ORDER BY vr.created_at;
 
 -- name: GetViolationRequestByID :one
 SELECT * FROM violation_requests WHERE id = $1;
@@ -177,4 +205,12 @@ RETURNING *;
 INSERT INTO violation_complaints (id, violation_id, request_id, user_id, reason, message)
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
+
+-- name: GetUserAuthProvidersByUserID :many
+SELECT * FROM user_auth_providers
+WHERE user_id = $1;
+
+-- name: DeleteUserAuthProvider :exec
+DELETE FROM user_auth_providers
+WHERE user_id = $1 AND provider = $2;
 

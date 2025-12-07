@@ -28,7 +28,6 @@ func (s *PokerService) Login(ctx context.Context, providerKey string, authorizat
 	}
 
 	if userAuthProviders == nil {
-
 		user, err := s.repository.CreateUser(ctx, userProfileFromProvider)
 		if err != nil {
 			return nil, err
@@ -38,10 +37,17 @@ func (s *PokerService) Login(ctx context.Context, providerKey string, authorizat
 		if err != nil {
 			return nil, err
 		}
-
 	}
 
 	userID := userAuthProviders.UserID
+
+	// If user has no avatar yet and provider returned one, initialize avatar_url from provider
+	if userProfileFromProvider.AvatarURL != "" {
+		if err := s.repository.SetUserAvatarIfEmpty(ctx, userID, &userProfileFromProvider.AvatarURL); err != nil {
+			// Не прерываем логин из-за ошибок установки аватара
+			_ = err
+		}
+	}
 
 	refreshToken, err := s.refreshTokenService.GenerateToken(userID)
 	if err != nil {

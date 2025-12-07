@@ -101,6 +101,8 @@ func (h *GetViolationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		Likes           int64           `json:"likes"`
 		Dislikes        int64           `json:"dislikes"`
 		UserVote        string          `json:"user_vote"`
+		AuthorBoostyURL string          `json:"author_boosty_url,omitempty"`
+		AuthorAvatarURL string          `json:"author_avatar_url,omitempty"`
 	}
 
 	// Transform requests with public URLs for photos
@@ -146,6 +148,8 @@ func (h *GetViolationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 			Likes:           req.Likes,
 			Dislikes:        req.Dislikes,
 			UserVote:        req.UserVote,
+			AuthorBoostyURL: req.AuthorBoostyURL,
+			AuthorAvatarURL: req.AuthorAvatarURL,
 		})
 	}
 

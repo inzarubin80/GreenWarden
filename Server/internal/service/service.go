@@ -21,6 +21,7 @@ type (
 		//User
 		GetUserAuthProvidersByProviderUid(ctx context.Context, ProviderUid string, Provider string) (*model.UserAuthProviders, error)
 		AddUserAuthProviders(ctx context.Context, userProfileFromProvide *model.UserProfileFromProvider, userID model.UserID) (*model.UserAuthProviders, error)
+		DeleteUserAuthProvider(ctx context.Context, userID model.UserID, provider string) error
 		CreateUser(ctx context.Context, userData *model.UserProfileFromProvider) (*model.User, error)
 		GetUsersByIDs(ctx context.Context, userIDs []model.UserID) ([]*model.User, error)
 		SetUserName(ctx context.Context, userID model.UserID, name string) error
@@ -29,6 +30,11 @@ type (
 		ListViolations(ctx context.Context, f *model.ListViolationsFilters) ([]*model.Violation, int64, error)
 		GetViolationByID(ctx context.Context, id model.ViolationID, userID model.UserID) (*model.Violation, error)
 		GetUser(ctx context.Context, userID model.UserID) (*model.User, error)
+		GetUserAuthProvidersByUserID(ctx context.Context, userID model.UserID) ([]*model.UserAuthProviders, error)
+		// User profile fields
+		SetUserAvatarIfEmpty(ctx context.Context, userID model.UserID, avatarURL *string) error
+		UpdateUserBoostyURL(ctx context.Context, userID model.UserID, boostyURL *string) error
+		UpdateUserAvatar(ctx context.Context, userID model.UserID, avatarURL *string) error
 		CreateViolationRequest(ctx context.Context, violationID model.ViolationID, status model.ViolationRequestStatus, userID model.UserID, comment string) (*model.ViolationRequest, error)
 		AddRequestPhoto(ctx context.Context, requestID string, url string, thumbURL string) (*model.ViolationRequestPhoto, error)
 		GetOpenRequestByViolationID(ctx context.Context, violationID model.ViolationID) (*model.ViolationRequest, error)

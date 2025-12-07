@@ -377,6 +377,15 @@ func (r *Repository) GetViolationByID(ctx context.Context, id model.ViolationID,
 		// Fill user vote from userVoteByRequest (empty string if not found).
 		userVote := userVoteByRequest[reqIDStr]
 
+		authorBoosty := ""
+		if req.AuthorBoostyUrl != nil {
+			authorBoosty = *req.AuthorBoostyUrl
+		}
+		authorAvatar := ""
+		if req.AuthorAvatarUrl != nil {
+			authorAvatar = *req.AuthorAvatarUrl
+		}
+
 		violationRequests = append(violationRequests, model.ViolationRequest{
 			ID:              reqIDStr,
 			ViolationID:     model.ViolationID(violationUUID.String()),
@@ -389,6 +398,8 @@ func (r *Repository) GetViolationByID(ctx context.Context, id model.ViolationID,
 			Likes:           likesCount,
 			Dislikes:        dislikesCount,
 			UserVote:        userVote,
+			AuthorBoostyURL: authorBoosty,
+			AuthorAvatarURL: authorAvatar,
 		})
 	}
 
@@ -598,6 +609,15 @@ func (r *Repository) GetOpenRequestByViolationID(ctx context.Context, violationI
 				comment = *req.Comment
 			}
 
+			authorBoosty := ""
+			if req.AuthorBoostyUrl != nil {
+				authorBoosty = *req.AuthorBoostyUrl
+			}
+			authorAvatar := ""
+			if req.AuthorAvatarUrl != nil {
+				authorAvatar = *req.AuthorAvatarUrl
+			}
+
 			return &model.ViolationRequest{
 				ID:              uuid.UUID(req.ID.Bytes).String(),
 				ViolationID:     violationID,
@@ -607,6 +627,8 @@ func (r *Repository) GetOpenRequestByViolationID(ctx context.Context, violationI
 				Photos:          requestPhotos,
 				CreatedAt:       reqCreatedAt,
 				UpdatedAt:       reqUpdatedAt,
+				AuthorBoostyURL: authorBoosty,
+				AuthorAvatarURL: authorAvatar,
 			}, nil
 		}
 	}
@@ -675,6 +697,17 @@ func (r *Repository) GetViolationRequestByID(ctx context.Context, requestID stri
 	}
 
 	violationUUID := uuid.UUID(req.ViolationID.Bytes)
+	// Fetch author's boosty_url and avatar_url directly (so single-request endpoint also returns them)
+	authorBoosty := ""
+	authorAvatar := ""
+	if userRow, err := reposqlsc.GetUserByID(ctx, req.CreatedByUserID); err == nil {
+		if userRow.BoostyUrl != nil {
+			authorBoosty = *userRow.BoostyUrl
+		}
+		if userRow.AvatarUrl != nil {
+			authorAvatar = *userRow.AvatarUrl
+		}
+	}
 
 	return &model.ViolationRequest{
 		ID:              uuid.UUID(req.ID.Bytes).String(),
@@ -685,5 +718,7 @@ func (r *Repository) GetViolationRequestByID(ctx context.Context, requestID stri
 		Photos:          requestPhotos,
 		CreatedAt:       reqCreatedAt,
 		UpdatedAt:       reqUpdatedAt,
+		AuthorBoostyURL: authorBoosty,
+		AuthorAvatarURL: authorAvatar,
 	}, nil
 }

@@ -29,6 +29,10 @@ func (s *PokerService) GetUser(ctx context.Context, userID model.UserID) (*model
 	}
 
 	return user, err
+}
 
+// UpdateUserAvatar устанавливает аватар пользователя вручную (через загрузку файла).
+func (s *PokerService) UpdateUserAvatar(ctx context.Context, userID model.UserID, avatarURL string) error {
+	return s.repository.UpdateUserAvatar(ctx, userID, &avatarURL)
 }
 

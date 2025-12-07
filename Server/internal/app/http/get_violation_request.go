@@ -117,14 +117,16 @@ func (h *GetViolationRequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 
 	// Response structure
 	response := struct {
-		ID              string          `json:"id"`
-		ViolationID     model.ViolationID `json:"violation_id"`
-		Status          string          `json:"status"`
-		CreatedByUserID model.UserID    `json:"created_by_user_id"`
-		Comment         string          `json:"comment,omitempty"`
-		CreatedAt       time.Time       `json:"created_at"`
-		UpdatedAt       time.Time       `json:"updated_at"`
-		Photos          []PhotoResponse `json:"photos"`
+		ID               string            `json:"id"`
+		ViolationID      model.ViolationID `json:"violation_id"`
+		Status           string            `json:"status"`
+		CreatedByUserID  model.UserID      `json:"created_by_user_id"`
+		Comment          string            `json:"comment,omitempty"`
+		CreatedAt        time.Time         `json:"created_at"`
+		UpdatedAt        time.Time         `json:"updated_at"`
+		Photos           []PhotoResponse   `json:"photos"`
+		AuthorBoostyURL  string            `json:"author_boosty_url,omitempty"`
+		AuthorAvatarURL  string            `json:"author_avatar_url,omitempty"`
 	}{
 		ID:              request.ID,
 		ViolationID:     request.ViolationID,
@@ -134,6 +136,8 @@ func (h *GetViolationRequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 		CreatedAt:       request.CreatedAt,
 		UpdatedAt:       request.UpdatedAt,
 		Photos:          publicPhotos,
+		AuthorBoostyURL: request.AuthorBoostyURL,
+		AuthorAvatarURL: request.AuthorAvatarURL,
 	}
 
 	b, err := json.Marshal(response)

@@ -67,6 +67,10 @@ func (p *ProviderUserData) parseYandexProfile(profile map[string]interface{}) (*
 	firstName, _ := profile["first_name"].(string)
 	lastName, _ := profile["last_name"].(string)
 
+	// Yandex не отдает прямой URL аватара, но может отдавать default_avatar_id.
+	// При необходимости сюда можно добавить построение URL на основе этого поля.
+	avatarURL, _ := profile["default_avatar_id"].(string)
+
 	userData := &model.UserProfileFromProvider{
 		Name:         displayName,
 		ProviderID:   providerID,
@@ -74,6 +78,7 @@ func (p *ProviderUserData) parseYandexProfile(profile map[string]interface{}) (*
 		Email:        defaultEmail,
 		FirstName:    firstName,
 		LastName:     lastName,
+		AvatarURL:    avatarURL,
 	}
 
 	return userData, nil
@@ -84,6 +89,7 @@ func (p *ProviderUserData) parseGoogleProfile(profile map[string]interface{}) (*
 	displayName, _ := profile["name"].(string)
 	providerID, _ := profile["id"].(string)
 	email, _ := profile["email"].(string)
+	picture, _ := profile["picture"].(string)
 	firstName, _ := profile["given_name"].(string)
 	lastName, _ := profile["family_name"].(string)
 
@@ -105,6 +111,7 @@ func (p *ProviderUserData) parseGoogleProfile(profile map[string]interface{}) (*
 		Email:        email,
 		FirstName:    firstName,
 		LastName:     lastName,
+		AvatarURL:    picture,
 	}
 
 	return userData, nil
@@ -116,6 +123,7 @@ func (p *ProviderUserData) parseGitHubProfile(profile map[string]interface{}) (*
 	providerID, _ := profile["id"].(float64) // GitHub возвращает ID как число
 	email, _ := profile["email"].(string)
 	login, _ := profile["login"].(string)
+	avatar, _ := profile["avatar_url"].(string)
 
 	// Если displayName пустой, используем login
 	if displayName == "" {
@@ -129,6 +137,7 @@ func (p *ProviderUserData) parseGitHubProfile(profile map[string]interface{}) (*
 		Email:        email,
 		FirstName:    displayName, // GitHub не предоставляет отдельно имя и фамилию
 		LastName:     "",
+		AvatarURL:    avatar,
 	}
 
 	return userData, nil
@@ -141,6 +150,7 @@ func (p *ProviderUserData) parseDefaultProfile(profile map[string]interface{}) (
 	email, _ := profile["email"].(string)
 	firstName, _ := profile["first_name"].(string)
 	lastName, _ := profile["last_name"].(string)
+	avatarURL, _ := profile["avatar_url"].(string)
 
 	userData := &model.UserProfileFromProvider{
 		Name:         displayName,
@@ -149,6 +159,7 @@ func (p *ProviderUserData) parseDefaultProfile(profile map[string]interface{}) (
 		Email:        email,
 		FirstName:    firstName,
 		LastName:     lastName,
+		AvatarURL:    avatarURL,
 	}
 
 	return userData, nil

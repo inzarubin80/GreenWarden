@@ -38,10 +38,12 @@ type (
 	}
 
 	User struct {
-		ID                 UserID
-		Name               string
-		EvaluationStrategy string
-		MaximumScore       int
+		ID                 UserID `json:"id"`
+		Name               string `json:"name"`
+		EvaluationStrategy string `json:"evaluation_strategy,omitempty"`
+		MaximumScore       int    `json:"maximum_score,omitempty"`
+		AvatarURL          string `json:"avatar_url,omitempty"`
+		BoostyURL          string `json:"boosty_url,omitempty"`
 	}
 
 	Violation struct {
@@ -71,6 +73,8 @@ type (
 		Likes           int64                   `json:"likes"`
 		Dislikes        int64                   `json:"dislikes"`
 		UserVote        string                  `json:"user_vote"`
+		AuthorBoostyURL string                  `json:"author_boosty_url,omitempty"`
+		AuthorAvatarURL string                  `json:"author_avatar_url,omitempty"`
 	}
 
 	ViolationRequestPhoto struct {
@@ -100,6 +104,14 @@ type (
 		ProviderUid string
 		Provider    string
 		Name        string
+	}
+
+	UserProfile struct {
+		ID                 UserID   `json:"id"`
+		Name               string   `json:"name"`
+		AvatarURL          string   `json:"avatar_url,omitempty"`
+		BoostyURL          string   `json:"boosty_url,omitempty"`
+		ConnectedProviders []string `json:"connected_providers,omitempty"`
 	}
 
 	AuthData struct {

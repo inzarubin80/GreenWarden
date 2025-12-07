@@ -13,6 +13,8 @@ type User struct {
 	Name               string
 	EvaluationStrategy *string
 	MaximumScore       *int32
+	AvatarUrl          *string
+	BoostyUrl          *string
 }
 
 type UserAuthProvider struct {
@@ -48,11 +50,11 @@ type ViolationChatMessage struct {
 type ViolationComplaint struct {
 	ID          pgtype.UUID
 	ViolationID pgtype.UUID
+	RequestID   pgtype.UUID
 	UserID      int64
 	Reason      *string
 	Message     *string
 	CreatedAt   pgtype.Timestamptz
-	RequestID   pgtype.UUID
 }
 
 type ViolationPhoto struct {
@@ -83,9 +85,9 @@ type ViolationRequestPhoto struct {
 type ViolationVote struct {
 	ID          pgtype.UUID
 	ViolationID pgtype.UUID
+	RequestID   pgtype.UUID
 	UserID      int64
 	Value       string
 	CreatedAt   pgtype.Timestamptz
 	UpdatedAt   pgtype.Timestamptz
-	RequestID   pgtype.UUID
 }

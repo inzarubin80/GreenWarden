@@ -55,6 +55,8 @@ func (m *LogMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ct := r.Header.Get("Content-Type")
 	isBinaryUpload := strings.HasPrefix(ct, "multipart/form-data") ||
 		strings.HasPrefix(ct, "image/")
+	// Paths for which we still want to log response body even if request is multipart (e.g. avatar upload returns small JSON)
+	logResponseForPath := r.URL.Path == "/api/profile/avatar"
 
 	var bodyCopy []byte
 	if !isBinaryUpload && r.Body != nil {
@@ -75,7 +77,7 @@ func (m *LogMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	m.h.ServeHTTP(lrw, r)
 
-	if !isBinaryUpload {
+	if !isBinaryUpload || logResponseForPath {
 		fmt.Printf("Response status: %d\n", lrw.status)
 		if lrw.buf.Len() > 0 {
 			fmt.Println("Response body:", lrw.buf.String())

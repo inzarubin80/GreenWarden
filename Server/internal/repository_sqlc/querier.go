@@ -25,19 +25,24 @@ type Querier interface {
 	// Violation Requests
 	CreateViolationRequest(ctx context.Context, arg *CreateViolationRequestParams) (*ViolationRequest, error)
 	CreateViolationRequestComplaint(ctx context.Context, arg *CreateViolationRequestComplaintParams) (*ViolationComplaint, error)
+	DeleteUserAuthProvider(ctx context.Context, arg *DeleteUserAuthProviderParams) error
 	DeleteViolationChatMessage(ctx context.Context, arg *DeleteViolationChatMessageParams) (pgtype.UUID, error)
 	DeleteViolationVote(ctx context.Context, arg *DeleteViolationVoteParams) error
 	GetPhotosByViolationID(ctx context.Context, violationID pgtype.UUID) ([]*ViolationPhoto, error)
 	GetRequestPhotosByRequestID(ctx context.Context, requestID pgtype.UUID) ([]*ViolationRequestPhoto, error)
 	GetUserAuthProvidersByProviderUid(ctx context.Context, arg *GetUserAuthProvidersByProviderUidParams) (*UserAuthProvider, error)
+	GetUserAuthProvidersByUserID(ctx context.Context, userID int64) ([]*UserAuthProvider, error)
 	GetUserByID(ctx context.Context, userID int64) (*User, error)
 	GetUsersByIDs(ctx context.Context, dollar_1 []int64) ([]*User, error)
 	GetViolationByID(ctx context.Context, id pgtype.UUID) (*Violation, error)
 	GetViolationRequestByID(ctx context.Context, id pgtype.UUID) (*ViolationRequest, error)
-	GetViolationRequestsByViolationID(ctx context.Context, violationID pgtype.UUID) ([]*ViolationRequest, error)
+	GetViolationRequestsByViolationID(ctx context.Context, violationID pgtype.UUID) ([]*GetViolationRequestsByViolationIDRow, error)
 	GetViolationVotesAggregated(ctx context.Context, arg *GetViolationVotesAggregatedParams) (*GetViolationVotesAggregatedRow, error)
 	ListViolationChatMessages(ctx context.Context, arg *ListViolationChatMessagesParams) ([]*ViolationChatMessage, error)
 	ListViolations(ctx context.Context, arg *ListViolationsParams) ([]*Violation, error)
+	SetUserAvatarIfEmpty(ctx context.Context, arg *SetUserAvatarIfEmptyParams) error
+	UpdateUserAvatar(ctx context.Context, arg *UpdateUserAvatarParams) error
+	UpdateUserBoostyURL(ctx context.Context, arg *UpdateUserBoostyURLParams) error
 	UpdateUserName(ctx context.Context, arg *UpdateUserNameParams) (*User, error)
 	UpdateViolationChatMessage(ctx context.Context, arg *UpdateViolationChatMessageParams) (*ViolationChatMessage, error)
 	UpdateViolationStatus(ctx context.Context, arg *UpdateViolationStatusParams) (*Violation, error)

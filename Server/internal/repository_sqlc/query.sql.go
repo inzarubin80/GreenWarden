@@ -239,7 +239,7 @@ const createViolationComplaint = `-- name: CreateViolationComplaint :one
 
 INSERT INTO violation_complaints (id, violation_id, user_id, reason, message)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, violation_id, user_id, reason, message, created_at, request_id
+RETURNING id, violation_id, request_id, user_id, reason, message, created_at
 `
 
 type CreateViolationComplaintParams struct {
@@ -263,11 +263,11 @@ func (q *Queries) CreateViolationComplaint(ctx context.Context, arg *CreateViola
 	err := row.Scan(
 		&i.ID,
 		&i.ViolationID,
+		&i.RequestID,
 		&i.UserID,
 		&i.Reason,
 		&i.Message,
 		&i.CreatedAt,
-		&i.RequestID,
 	)
 	return &i, err
 }
@@ -312,7 +312,7 @@ func (q *Queries) CreateViolationRequest(ctx context.Context, arg *CreateViolati
 const createViolationRequestComplaint = `-- name: CreateViolationRequestComplaint :one
 INSERT INTO violation_complaints (id, violation_id, request_id, user_id, reason, message)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, violation_id, user_id, reason, message, created_at, request_id
+RETURNING id, violation_id, request_id, user_id, reason, message, created_at
 `
 
 type CreateViolationRequestComplaintParams struct {
@@ -337,13 +337,28 @@ func (q *Queries) CreateViolationRequestComplaint(ctx context.Context, arg *Crea
 	err := row.Scan(
 		&i.ID,
 		&i.ViolationID,
+		&i.RequestID,
 		&i.UserID,
 		&i.Reason,
 		&i.Message,
 		&i.CreatedAt,
-		&i.RequestID,
 	)
 	return &i, err
+}
+
+const deleteUserAuthProvider = `-- name: DeleteUserAuthProvider :exec
+DELETE FROM user_auth_providers
+WHERE user_id = $1 AND provider = $2
+`
+
+type DeleteUserAuthProviderParams struct {
+	UserID   int64
+	Provider string
+}
+
+func (q *Queries) DeleteUserAuthProvider(ctx context.Context, arg *DeleteUserAuthProviderParams) error {
+	_, err := q.db.Exec(ctx, deleteUserAuthProvider, arg.UserID, arg.Provider)
+	return err
 }
 
 const deleteViolationChatMessage = `-- name: DeleteViolationChatMessage :one
@@ -460,8 +475,38 @@ func (q *Queries) GetUserAuthProvidersByProviderUid(ctx context.Context, arg *Ge
 	return &i, err
 }
 
+const getUserAuthProvidersByUserID = `-- name: GetUserAuthProvidersByUserID :many
+SELECT user_id, provider_uid, provider, name FROM user_auth_providers
+WHERE user_id = $1
+`
+
+func (q *Queries) GetUserAuthProvidersByUserID(ctx context.Context, userID int64) ([]*UserAuthProvider, error) {
+	rows, err := q.db.Query(ctx, getUserAuthProvidersByUserID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*UserAuthProvider
+	for rows.Next() {
+		var i UserAuthProvider
+		if err := rows.Scan(
+			&i.UserID,
+			&i.ProviderUid,
+			&i.Provider,
+			&i.Name,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUserByID = `-- name: GetUserByID :one
-SELECT user_id, name, evaluation_strategy, maximum_score FROM users
+SELECT user_id, name, evaluation_strategy, maximum_score, avatar_url, boosty_url FROM users
 WHERE user_id = $1
 `
 
@@ -473,12 +518,14 @@ func (q *Queries) GetUserByID(ctx context.Context, userID int64) (*User, error) 
 		&i.Name,
 		&i.EvaluationStrategy,
 		&i.MaximumScore,
+		&i.AvatarUrl,
+		&i.BoostyUrl,
 	)
 	return &i, err
 }
 
 const getUsersByIDs = `-- name: GetUsersByIDs :many
-SELECT user_id, name, evaluation_strategy, maximum_score FROM users
+SELECT user_id, name, evaluation_strategy, maximum_score, avatar_url, boosty_url FROM users
 WHERE user_id = ANY($1::bigint[])
 `
 
@@ -496,6 +543,8 @@ func (q *Queries) GetUsersByIDs(ctx context.Context, dollar_1 []int64) ([]*User,
 			&i.Name,
 			&i.EvaluationStrategy,
 			&i.MaximumScore,
+			&i.AvatarUrl,
+			&i.BoostyUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -549,18 +598,43 @@ func (q *Queries) GetViolationRequestByID(ctx context.Context, id pgtype.UUID) (
 }
 
 const getViolationRequestsByViolationID = `-- name: GetViolationRequestsByViolationID :many
-SELECT id, violation_id, status, created_by_user_id, comment, created_at, updated_at FROM violation_requests WHERE violation_id = $1 ORDER BY created_at
+SELECT
+  vr.id,
+  vr.violation_id,
+  vr.status,
+  vr.created_by_user_id,
+  vr.comment,
+  vr.created_at,
+  vr.updated_at,
+  u.boosty_url AS author_boosty_url,
+  u.avatar_url AS author_avatar_url
+FROM violation_requests vr
+LEFT JOIN users u ON vr.created_by_user_id = u.user_id
+WHERE vr.violation_id = $1
+ORDER BY vr.created_at
 `
 
-func (q *Queries) GetViolationRequestsByViolationID(ctx context.Context, violationID pgtype.UUID) ([]*ViolationRequest, error) {
+type GetViolationRequestsByViolationIDRow struct {
+	ID              pgtype.UUID
+	ViolationID     pgtype.UUID
+	Status          string
+	CreatedByUserID int64
+	Comment         *string
+	CreatedAt       pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
+	AuthorBoostyUrl *string
+	AuthorAvatarUrl *string
+}
+
+func (q *Queries) GetViolationRequestsByViolationID(ctx context.Context, violationID pgtype.UUID) ([]*GetViolationRequestsByViolationIDRow, error) {
 	rows, err := q.db.Query(ctx, getViolationRequestsByViolationID, violationID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*ViolationRequest
+	var items []*GetViolationRequestsByViolationIDRow
 	for rows.Next() {
-		var i ViolationRequest
+		var i GetViolationRequestsByViolationIDRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ViolationID,
@@ -569,6 +643,8 @@ func (q *Queries) GetViolationRequestsByViolationID(ctx context.Context, violati
 			&i.Comment,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AuthorBoostyUrl,
+			&i.AuthorAvatarUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -736,11 +812,59 @@ func (q *Queries) ListViolations(ctx context.Context, arg *ListViolationsParams)
 	return items, nil
 }
 
+const setUserAvatarIfEmpty = `-- name: SetUserAvatarIfEmpty :exec
+UPDATE users
+SET avatar_url = $2
+WHERE user_id = $1 AND (avatar_url IS NULL OR avatar_url = '')
+`
+
+type SetUserAvatarIfEmptyParams struct {
+	UserID    int64
+	AvatarUrl *string
+}
+
+func (q *Queries) SetUserAvatarIfEmpty(ctx context.Context, arg *SetUserAvatarIfEmptyParams) error {
+	_, err := q.db.Exec(ctx, setUserAvatarIfEmpty, arg.UserID, arg.AvatarUrl)
+	return err
+}
+
+const updateUserAvatar = `-- name: UpdateUserAvatar :exec
+UPDATE users
+SET avatar_url = $2
+WHERE user_id = $1
+`
+
+type UpdateUserAvatarParams struct {
+	UserID    int64
+	AvatarUrl *string
+}
+
+func (q *Queries) UpdateUserAvatar(ctx context.Context, arg *UpdateUserAvatarParams) error {
+	_, err := q.db.Exec(ctx, updateUserAvatar, arg.UserID, arg.AvatarUrl)
+	return err
+}
+
+const updateUserBoostyURL = `-- name: UpdateUserBoostyURL :exec
+UPDATE users
+SET boosty_url = $2
+WHERE user_id = $1
+`
+
+type UpdateUserBoostyURLParams struct {
+	UserID    int64
+	BoostyUrl *string
+}
+
+func (q *Queries) UpdateUserBoostyURL(ctx context.Context, arg *UpdateUserBoostyURLParams) error {
+	_, err := q.db.Exec(ctx, updateUserBoostyURL, arg.UserID, arg.BoostyUrl)
+	return err
+}
+
 const updateUserName = `-- name: UpdateUserName :one
 UPDATE users
 SET name = $1
 WHERE user_id = $2
-RETURNING user_id, name, evaluation_strategy, maximum_score
+RETURNING user_id, name, evaluation_strategy, maximum_score, avatar_url, boosty_url
 `
 
 type UpdateUserNameParams struct {
@@ -756,6 +880,8 @@ func (q *Queries) UpdateUserName(ctx context.Context, arg *UpdateUserNameParams)
 		&i.Name,
 		&i.EvaluationStrategy,
 		&i.MaximumScore,
+		&i.AvatarUrl,
+		&i.BoostyUrl,
 	)
 	return &i, err
 }
@@ -825,7 +951,7 @@ ON CONFLICT (request_id, user_id) DO UPDATE
 SET value = EXCLUDED.value,
     updated_at = NOW(),
     request_id = EXCLUDED.request_id
-RETURNING id, violation_id, user_id, value, created_at, updated_at, request_id
+RETURNING id, violation_id, request_id, user_id, value, created_at, updated_at
 `
 
 type UpsertViolationRequestVoteParams struct {
@@ -848,11 +974,11 @@ func (q *Queries) UpsertViolationRequestVote(ctx context.Context, arg *UpsertVio
 	err := row.Scan(
 		&i.ID,
 		&i.ViolationID,
+		&i.RequestID,
 		&i.UserID,
 		&i.Value,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.RequestID,
 	)
 	return &i, err
 }
@@ -863,7 +989,7 @@ INSERT INTO violation_votes (id, violation_id, user_id, value)
 VALUES ($1, $2, $3, $4)
 ON CONFLICT (violation_id, user_id) DO UPDATE
 SET value = EXCLUDED.value, updated_at = NOW()
-RETURNING id, violation_id, user_id, value, created_at, updated_at, request_id
+RETURNING id, violation_id, request_id, user_id, value, created_at, updated_at
 `
 
 type UpsertViolationVoteParams struct {
@@ -885,11 +1011,11 @@ func (q *Queries) UpsertViolationVote(ctx context.Context, arg *UpsertViolationV
 	err := row.Scan(
 		&i.ID,
 		&i.ViolationID,
+		&i.RequestID,
 		&i.UserID,
 		&i.Value,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.RequestID,
 	)
 	return &i, err
 }

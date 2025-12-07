@@ -19,10 +19,12 @@ func (r *Repository) CreateUser(ctx context.Context, userData *model.UserProfile
 		return nil, err
 	}
 
-	return &model.User{
+	user := &model.User{
 		ID:   model.UserID(userID),
 		Name: userData.Name,
-	}, nil
+	}
+
+	return user, nil
 }
 
 func (r *Repository) SetUserName(ctx context.Context, userID model.UserID, name string) error {
@@ -36,6 +38,33 @@ func (r *Repository) SetUserName(ctx context.Context, userID model.UserID, name 
 
 	return err
 
+}
+
+func (r *Repository) SetUserAvatarIfEmpty(ctx context.Context, userID model.UserID, avatarURL *string) error {
+	reposqlsc := sqlc_repository.New(r.conn)
+	arg := &sqlc_repository.SetUserAvatarIfEmptyParams{
+		UserID:    int64(userID),
+		AvatarUrl: avatarURL,
+	}
+	return reposqlsc.SetUserAvatarIfEmpty(ctx, arg)
+}
+
+func (r *Repository) UpdateUserBoostyURL(ctx context.Context, userID model.UserID, boostyURL *string) error {
+	reposqlsc := sqlc_repository.New(r.conn)
+	arg := &sqlc_repository.UpdateUserBoostyURLParams{
+		UserID:    int64(userID),
+		BoostyUrl: boostyURL,
+	}
+	return reposqlsc.UpdateUserBoostyURL(ctx, arg)
+}
+
+func (r *Repository) UpdateUserAvatar(ctx context.Context, userID model.UserID, avatarURL *string) error {
+	reposqlsc := sqlc_repository.New(r.conn)
+	arg := &sqlc_repository.UpdateUserAvatarParams{
+		UserID:    int64(userID),
+		AvatarUrl: avatarURL,
+	}
+	return reposqlsc.UpdateUserAvatar(ctx, arg)
 }
 
 
@@ -52,10 +81,24 @@ func (r *Repository) GetUser(ctx context.Context, userID model.UserID) (*model.U
 		return nil, err
 	}
 
-	return &model.User{
+	res := &model.User{
 		ID:   model.UserID(user.UserID),
 		Name: user.Name,
-	}, nil
+	}
+	if user.EvaluationStrategy != nil {
+		res.EvaluationStrategy = *user.EvaluationStrategy
+	}
+	if user.MaximumScore != nil {
+		res.MaximumScore = int(*user.MaximumScore)
+	}
+	if user.AvatarUrl != nil {
+		res.AvatarURL = *user.AvatarUrl
+	}
+	if user.BoostyUrl != nil {
+		res.BoostyURL = *user.BoostyUrl
+	}
+
+	return res, nil
 
 }
 
@@ -78,10 +121,23 @@ func (r *Repository) GetUsersByIDs(ctx context.Context, userIDs []model.UserID) 
 	usersRes := make([]*model.User, len(users))
 
 	for i, value := range users {
-		usersRes[i] = &model.User{
+		u := &model.User{
 			ID:   model.UserID(value.UserID),
 			Name: value.Name,
 		}
+		if value.EvaluationStrategy != nil {
+			u.EvaluationStrategy = *value.EvaluationStrategy
+		}
+		if value.MaximumScore != nil {
+			u.MaximumScore = int(*value.MaximumScore)
+		}
+		if value.AvatarUrl != nil {
+			u.AvatarURL = *value.AvatarUrl
+		}
+		if value.BoostyUrl != nil {
+			u.BoostyURL = *value.BoostyUrl
+		}
+		usersRes[i] = u
 	}
 
 	return usersRes, nil

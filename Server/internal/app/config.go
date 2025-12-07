@@ -26,7 +26,9 @@ type (
 		violationChatWS, getViolationChat, postViolationChatMessage, updateViolationChatMessage, deleteViolationChatMessage,
 		getViolationVote, postViolationVote, postViolationComplaint,
 		postViolationRequestVote, postViolationRequestComplaint,
-		ping, vote, getUserEstimates, setVotingControlState, setUserName, getUser, setUserSettings, getLastSession, deletePoker string
+		ping, vote, getUserEstimates, setVotingControlState, setUserName, getUser, setUserSettings, getLastSession, deletePoker,
+		getProfile, updateProfile, uploadProfileAvatar,
+		linkAuthProvider, unlinkAuthProvider string
 	}
 
 	sectrets struct {
@@ -147,6 +149,13 @@ func NewConfig(opts Options) config {
 			setUserSettings:       "POST	/api/user/settings",
 
 			getUser: "GET	/api/user",
+
+			getProfile:          "GET /api/profile",
+			updateProfile:       "PATCH /api/profile",
+			uploadProfileAvatar: "POST /api/profile/avatar",
+
+			linkAuthProvider:   "POST /api/profile/auth-providers/{provider}/link",
+			unlinkAuthProvider: "POST /api/profile/auth-providers/{provider}/unlink",
 
 			refreshToken: "POST	/api/user/refresh",
 			session:      "GET		/api/user/session",
