@@ -8,6 +8,7 @@ import type { Problem } from "./types/problem";
 import { getViolationsByBbox, getViolationById } from "./api/violations";
 import type { Violation, ViolationDetails } from "./types/violation";
 import { getStatusLabel, getRequestStatusLabel } from "./types/status";
+import { GOOGLE_PLAY_URL } from "./config/mobile";
 
 const violationToProblem = (v: Violation): Problem => ({
   id: String(v.id),
@@ -179,219 +180,242 @@ const MapScreen: React.FC<MapScreenProps> = ({ violationId }) => {
         />
       </div>
       <div className="card-column">
-        <div className="filters-row">
-          <Link className="button-secondary" to="/about">
-            О проекте и приложении
-          </Link>
-        </div>
-        {!isDetailMode && (
+        <div className="card-main">
           <div className="filters-row">
-            <label className="filter-label">
-              Статус:
-              <select
-                className="filter-select"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="all">Все</option>
-                {availableStatuses.map((st) => (
-                  <option key={st} value={st}>
-                    {getStatusLabel(st)}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <Link className="button-secondary" to="/about">
+              О проекте и приложении
+            </Link>
           </div>
-        )}
-        {isDetailMode && (
-          <button
-            type="button"
-            className="status"
-            onClick={() => navigate("/")}
-          >
-            На главную карту
-          </button>
-        )}
-        {loading && <div className="status">Загрузка нарушений...</div>}
-        {error && <div className="status error">{error}</div>}
-        {!loading && !error && selected && (
-          <>
-            <div className="tabs">
-              <button
-                type="button"
-                className={`tab-button${
-                  activeTab === "overview" ? " tab-button--active" : ""
-                }`}
-                onClick={() => setActiveTab("overview")}
-              >
-                Обзор
-              </button>
-              <button
-                type="button"
-                className={`tab-button${
-                  activeTab === "requests" ? " tab-button--active" : ""
-                }`}
-                onClick={() => {
-                  setActiveTab("requests");
-                  if (!details) {
-                    void ensureDetailsLoaded(selected.id);
-                  }
-                }}
-              >
-                Действия
-                {details && details.requests.length > 0
-                  ? ` (${details.requests.length})`
-                  : ""}
-              </button>
-              <button
-                type="button"
-                className={`tab-button${
-                  activeTab === "photos" ? " tab-button--active" : ""
-                }`}
-                onClick={() => {
-                  setActiveTab("photos");
-                  if (!details) {
-                    void ensureDetailsLoaded(selected.id);
-                  }
-                }}
-              >
-                Фото
-                {details && details.photos.length > 0
-                  ? ` (${details.photos.length})`
-                  : ""}
-              </button>
+          {!isDetailMode && (
+            <div className="filters-row">
+              <label className="filter-label">
+                Статус:
+                <select
+                  className="filter-select"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="all">Все</option>
+                  {availableStatuses.map((st) => (
+                    <option key={st} value={st}>
+                      {getStatusLabel(st)}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
-            {activeTab === "overview" && <ProblemCard problem={selected} />}
-            {activeTab === "requests" && (
-              <div className="tab-content">
-                {detailsLoading && (
-                  <div className="status">Загрузка действий...</div>
-                )}
-                {detailsError && (
-                  <div className="status error">{detailsError}</div>
-                )}
-                {!detailsLoading &&
-                  !detailsError &&
-                  details &&
-                  details.requests.length === 0 && (
-                    <div className="status">Действий пока нет</div>
+          )}
+          {isDetailMode && (
+            <button
+              type="button"
+              className="status"
+              onClick={() => navigate("/")}
+            >
+              На главную карту
+            </button>
+          )}
+          {loading && <div className="status">Загрузка нарушений...</div>}
+          {error && <div className="status error">{error}</div>}
+          {!loading && !error && selected && (
+            <>
+              <div className="tabs">
+                <button
+                  type="button"
+                  className={`tab-button${
+                    activeTab === "overview" ? " tab-button--active" : ""
+                  }`}
+                  onClick={() => setActiveTab("overview")}
+                >
+                  Обзор
+                </button>
+                <button
+                  type="button"
+                  className={`tab-button${
+                    activeTab === "requests" ? " tab-button--active" : ""
+                  }`}
+                  onClick={() => {
+                    setActiveTab("requests");
+                    if (!details) {
+                      void ensureDetailsLoaded(selected.id);
+                    }
+                  }}
+                >
+                  Действия
+                  {details && details.requests.length > 0
+                    ? ` (${details.requests.length})`
+                    : ""}
+                </button>
+                <button
+                  type="button"
+                  className={`tab-button${
+                    activeTab === "photos" ? " tab-button--active" : ""
+                  }`}
+                  onClick={() => {
+                    setActiveTab("photos");
+                    if (!details) {
+                      void ensureDetailsLoaded(selected.id);
+                    }
+                  }}
+                >
+                  Фото
+                  {details && details.photos.length > 0
+                    ? ` (${details.photos.length})`
+                    : ""}
+                </button>
+              </div>
+              {activeTab === "overview" && <ProblemCard problem={selected} />}
+              {activeTab === "requests" && (
+                <div className="tab-content">
+                  {detailsLoading && (
+                    <div className="status">Загрузка действий...</div>
                   )}
-                {!detailsLoading &&
-                  !detailsError &&
-                  details &&
-                  details.requests.length > 0 && (
-                    <div className="requests-list">
-                      {details.requests.map((r) => (
-                        <div key={r.id} className="request-card">
-                          <div className="request-user">
-                            <div className="request-user-avatar">
-                              {r.author_avatar_url ? (
-                                // eslint-disable-next-line jsx-a11y/img-redundant-alt
-                                <img
-                                  src={r.author_avatar_url}
-                                  alt="Аватар пользователя"
-                                />
-                              ) : (
-                                <span>
-                                  {String(r.created_by_user_id)
-                                    .split(" ")
-                                    .map((p) => p[0])
-                                    .join("")
-                                    .toUpperCase() || "A"}
-                                </span>
-                              )}
+                  {detailsError && (
+                    <div className="status error">{detailsError}</div>
+                  )}
+                  {!detailsLoading &&
+                    !detailsError &&
+                    details &&
+                    details.requests.length === 0 && (
+                      <div className="status">Действий пока нет</div>
+                    )}
+                  {!detailsLoading &&
+                    !detailsError &&
+                    details &&
+                    details.requests.length > 0 && (
+                      <div className="requests-list">
+                        {details.requests.map((r) => (
+                          <div key={r.id} className="request-card">
+                            <div className="request-user">
+                              <div className="request-user-avatar">
+                                {r.author_avatar_url ? (
+                                  // eslint-disable-next-line jsx-a11y/img-redundant-alt
+                                  <img
+                                    src={r.author_avatar_url}
+                                    alt="Аватар пользователя"
+                                  />
+                                ) : (
+                                  <span>
+                                    {String(r.created_by_user_id)
+                                      .split(" ")
+                                      .map((p) => p[0])
+                                      .join("")
+                                      .toUpperCase() || "A"}
+                                  </span>
+                                )}
+                              </div>
+                              {/*
+                                Пока сервер не отдаёт имя, показываем техническое имя
+                                «Пользователь #ID». Когда появится author_name,
+                                можно будет подставить его вместо этого текста.
+                              */}
+                              <Link
+                                className="request-user-name"
+                                to={`/user/${r.created_by_user_id}`}
+                                state={{
+                                  name: `Пользователь #${r.created_by_user_id}`,
+                                  avatarUrl: r.author_avatar_url,
+                                  boostyUrl: r.author_boosty_url
+                                }}
+                              >
+                                {`Пользователь #${r.created_by_user_id}`}
+                              </Link>
                             </div>
-                            {/*
-                              Пока сервер не отдаёт имя, показываем техническое имя
-                              «Пользователь #ID». Когда появится author_name,
-                              можно будет подставить его вместо этого текста.
-                            */}
-                            <Link
-                              className="request-user-name"
-                              to={`/user/${r.created_by_user_id}`}
-                              state={{
-                                name: `Пользователь #${r.created_by_user_id}`,
-                                avatarUrl: r.author_avatar_url,
-                                boostyUrl: r.author_boosty_url
-                              }}
-                            >
-                              {`Пользователь #${r.created_by_user_id}`}
-                            </Link>
+                            <div className="request-header">
+                              <span className="request-status">
+                                {getRequestStatusLabel(r.status)}
+                              </span>
+                              <span className="request-date">
+                                {new Date(
+                                  r.created_at
+                                ).toLocaleString("ru-RU", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit"
+                                })}
+                              </span>
+                            </div>
+                            {r.comment && (
+                              <div className="request-comment">
+                                {r.comment}
+                              </div>
+                            )}
+                            <div className="request-footer">
+                              <span>
+                                Фото: {r.photos?.length ?? 0} · Лайки:{" "}
+                                {r.likes} / Дизлайки: {r.dislikes}
+                              </span>
+                            </div>
                           </div>
-                          <div className="request-header">
-                            <span className="request-status">
-                              {getRequestStatusLabel(r.status)}
-                            </span>
-                            <span className="request-date">
-                              {new Date(r.created_at).toLocaleString("ru-RU", {
-                                day: "2-digit",
-                                month: "2-digit",
-                                year: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit"
-                              })}
-                            </span>
-                          </div>
-                          {r.comment && (
-                            <div className="request-comment">{r.comment}</div>
-                          )}
-                          <div className="request-footer">
-                            <span>
-                              Фото: {r.photos?.length ?? 0} · Лайки:{" "}
-                              {r.likes} / Дизлайки: {r.dislikes}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
+                </div>
+              )}
+              {activeTab === "photos" && (
+                <div className="tab-content">
+                  {detailsLoading && (
+                    <div className="status">Загрузка фото...</div>
                   )}
-              </div>
-            )}
-            {activeTab === "photos" && (
-              <div className="tab-content">
-                {detailsLoading && (
-                  <div className="status">Загрузка фото...</div>
-                )}
-                {detailsError && (
-                  <div className="status error">{detailsError}</div>
-                )}
-                {!detailsLoading &&
-                  !detailsError &&
-                  details &&
-                  details.photos.length === 0 && (
-                    <div className="status">Фото пока нет</div>
+                  {detailsError && (
+                    <div className="status error">{detailsError}</div>
                   )}
-                {!detailsLoading &&
-                  !detailsError &&
-                  details &&
-                  details.photos.length > 0 && (
-                    <div className="photos-grid">
-                      {details.photos.map((p) => (
-                        <a
-                          key={p.id || p.url}
-                          href={p.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="photo-thumb"
-                        >
-                          {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
-                          <img
-                            src={p.thumb_url || p.url}
-                            alt="Фото нарушения"
-                          />
-                        </a>
-                      ))}
-                    </div>
-                  )}
-              </div>
-            )}
-          </>
-        )}
-        {!loading && !error && !selected && (
-          <div className="status">
-            {isDetailMode ? "Нарушение не найдено" : "Проблемы не найдены"}
+                  {!detailsLoading &&
+                    !detailsError &&
+                    details &&
+                    details.photos.length === 0 && (
+                      <div className="status">Фото пока нет</div>
+                    )}
+                  {!detailsLoading &&
+                    !detailsError &&
+                    details &&
+                    details.photos.length > 0 && (
+                      <div className="photos-grid">
+                        {details.photos.map((p) => (
+                          <a
+                            key={p.id || p.url}
+                            href={p.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="photo-thumb"
+                          >
+                            {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
+                            <img
+                              src={p.thumb_url || p.url}
+                              alt="Фото нарушения"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                </div>
+              )}
+            </>
+          )}
+          {!loading && !error && !selected && (
+            <div className="status">
+              {isDetailMode ? "Нарушение не найдено" : "Проблемы не найдены"}
+            </div>
+          )}
+        </div>
+        <div className="landing-section">
+          <h2 className="landing-subtitle">Мобильное приложение</h2>
+          <p className="landing-text">
+            С помощью мобильного приложения жители и активисты могут фиксировать
+            проблемы на местности, а также отмечать их решение.
+          </p>
+          <div className="landing-buttons">
+            <a
+              className="button-secondary"
+              href={GOOGLE_PLAY_URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Скачать в Google Play
+            </a>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

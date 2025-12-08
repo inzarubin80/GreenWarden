@@ -12,9 +12,6 @@ import { getActivistsByBboxMock } from "../mock/landingData";
 
 const DEFAULT_CENTER: [number, number] = [55.751244, 37.618423]; // Moscow
 
-const APP_STORE_URL = "https://example.com/app-store";
-const GOOGLE_PLAY_URL = "https://example.com/google-play";
-
 const initialBBox: BBox = [37.3, 55.5, 37.9, 55.9];
 
 export const LandingPage: React.FC = () => {
@@ -86,40 +83,6 @@ export const LandingPage: React.FC = () => {
             На карту
           </Link>
         </div>
-        <div className="landing-section">
-          <h1 className="landing-title">GreenWarden Backoffice</h1>
-          <p className="landing-text">
-            Платформа для мониторинга экологических проблем и координации
-            работы активистов на карте.
-          </p>
-        </div>
-
-        <div className="landing-section">
-          <h2 className="landing-subtitle">Мобильное приложение</h2>
-          <p className="landing-text">
-            С помощью мобильного приложения жители и активисты могут фиксировать
-            проблемы на местности, а также отмечать их решение.
-          </p>
-          <div className="landing-buttons">
-            <a
-              className="button-primary"
-              href={APP_STORE_URL}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Скачать в App Store
-            </a>
-            <a
-              className="button-secondary"
-              href={GOOGLE_PLAY_URL}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Скачать в Google Play
-            </a>
-          </div>
-        </div>
-
         <div className="landing-section">
           <h2 className="landing-subtitle">Как это работает</h2>
           <ol className="landing-steps">
