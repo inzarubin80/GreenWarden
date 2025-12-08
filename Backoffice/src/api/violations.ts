@@ -1,4 +1,4 @@
-import type { Paged, Violation } from "../types/violation";
+import type { Paged, Violation, ViolationDetails } from "../types/violation";
 import { apiClient } from "./client";
 
 export async function getViolationsByBbox(
@@ -6,6 +6,12 @@ export async function getViolationsByBbox(
 ): Promise<Paged<Violation>> {
   const qs = `bbox=${bbox.join(",")}`;
   return apiClient.get<Paged<Violation>>(`/violations?${qs}`);
+}
+
+export async function getViolationById(id: string): Promise<ViolationDetails> {
+  return apiClient.get<ViolationDetails>(
+    `/violations/${encodeURIComponent(id)}`
+  );
 }
 
 

@@ -66,10 +66,12 @@ func (h *GetViolationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	ctx := r.Context()
 
-	userID, ok := ctx.Value(defenitions.UserID).(model.UserID)
-	if !ok || userID == 0 {
-		uhttp.SendErrorResponse(w, http.StatusUnauthorized, "unauthorized")
-		return
+	// userID is optional: if present in context we will use it to
+	// enrich response with user-specific vote information.
+	// If absent, the endpoint is still publicly accessible.
+	var userID model.UserID
+	if v, ok := ctx.Value(defenitions.UserID).(model.UserID); ok {
+		userID = v
 	}
 
 	violation, err := h.service.GetViolationByID(ctx, violationID, userID)

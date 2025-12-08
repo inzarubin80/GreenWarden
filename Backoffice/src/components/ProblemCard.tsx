@@ -1,5 +1,6 @@
 import React from "react";
 import type { Problem } from "../types/problem";
+import { getStatusLabel } from "../types/status";
 
 interface ProblemCardProps {
   problem: Problem;
@@ -11,7 +12,7 @@ export const ProblemCard: React.FC<ProblemCardProps> = ({ problem }) => {
       <h2 className="problem-title">{problem.title}</h2>
       {problem.status && (
         <div className="problem-status">
-          Статус: <span>{problem.status}</span>
+          Статус: <span>{getStatusLabel(problem.status)}</span>
         </div>
       )}
       {problem.address && (
