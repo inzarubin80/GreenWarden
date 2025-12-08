@@ -11,6 +11,7 @@ export function getStatusLabel(status?: string): string {
     case "closed":
       return "Решённые";
     case "partially_closed":
+    case "partially_resolved":
       return "Частично решённые";
     default:
       return status;
@@ -24,6 +25,7 @@ export function getRequestStatusLabel(status?: string): string {
     case "open":
       return "Открыто";
     case "partially_closed":
+    case "partially_resolved":
       return "Частичное закрытие";
     case "closed":
       return "Закрыто";
