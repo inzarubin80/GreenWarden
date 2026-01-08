@@ -86,39 +86,14 @@ export const LandingPage: React.FC = () => {
         <div className="landing-section">
           <h2 className="landing-subtitle">Как это работает</h2>
           <ol className="landing-steps">
+            <li>Установите мобильное приложение GreenWarden.</li>
             <li>Откройте карту и найдите проблемный участок.</li>
             <li>Создайте проблему через мобильное приложение.</li>
-            <li>Координаторы распределяют задачи между активистами.</li>
-            <li>После решения проблемы отмечайте её статус как решённую.</li>
+            <li>После решения проблемы отметьте её статус как решённую.</li>
+            <li>
+              Поддержите активиста и поделитесь проблемой в социальных сетях.
+            </li>
           </ol>
-        </div>
-
-        <div className="landing-section">
-          <h2 className="landing-subtitle">Активисты в выбранной области</h2>
-          {activists.length === 0 ? (
-            <div className="status">
-              В текущей области пока нет активностей активистов.
-            </div>
-          ) : (
-            <div className="activists-list">
-              {activists.map((a) => (
-                <div key={a.id} className="activist-card">
-                  <div className="activist-main">
-                    <div className="activist-avatar">
-                      {a.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="activist-name">{a.name}</div>
-                      <div className="activist-meta">
-                        Создал проблем: {a.createdCount} · Решил проблем:{" "}
-                        {a.resolvedCount}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     </div>
