@@ -120,9 +120,15 @@ func NewConfig(opts Options) config {
 			}
 		}
 	} else {
-		// Для разработки: добавляем дефолтные origins только если не продакшен
-		// Можно определить продакшен по наличию других переменных окружения
-		if os.Getenv("ENV") != "production" {
+		// Если переменная не установлена, используем дефолтные значения
+		isProduction := os.Getenv("ENV") == "production"
+		if isProduction {
+			// Для продакшена: добавляем продакшен origin
+			corsOrigins = []string{
+				"https://green-warden.ru",
+			}
+		} else {
+			// Для разработки: добавляем дефолтные origins
 			corsOrigins = []string{
 				"http://localhost:3000",
 				"http://10.0.2.2", // Android emulator
