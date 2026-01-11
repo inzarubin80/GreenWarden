@@ -21,10 +21,8 @@ func main() {
 	ctx := context.Background()
 	// default HTTP port
 	options := app.Options{
-		Addr:  "0.0.0.0:8090",
+		Addr: "0.0.0.0:8090",
 	}
-
-	
 
 	conf := app.NewConfig(options)
 
@@ -58,4 +56,3 @@ func main() {
 	}
 
 }
-

@@ -296,7 +296,7 @@ func NewApp(ctx context.Context, config config, dbConn *pgxpool.Pool) (*App, err
 	)
 
 	return &App{
-		mux:          mux,
+		mux: mux,
 		server: &http.Server{
 			Addr:              config.addr,
 			Handler:           handler,
