@@ -24,7 +24,10 @@ import (
 )
 
 const (
-	readHeaderTimeoutSeconds = 3
+	readHeaderTimeoutSeconds = 30
+	readTimeoutSeconds       = 60
+	writeTimeoutSeconds      = 60
+	idleTimeoutSeconds       = 300
 )
 
 type (
@@ -293,8 +296,15 @@ func NewApp(ctx context.Context, config config, dbConn *pgxpool.Pool) (*App, err
 	)
 
 	return &App{
-		mux:           mux,
-		server:        &http.Server{Addr: config.addr, Handler: handler, ReadHeaderTimeout: readHeaderTimeoutSeconds * time.Second},
+		mux:          mux,
+		server: &http.Server{
+			Addr:              config.addr,
+			Handler:           handler,
+			ReadHeaderTimeout: readHeaderTimeoutSeconds * time.Second,
+			ReadTimeout:       readTimeoutSeconds * time.Second,
+			WriteTimeout:      writeTimeoutSeconds * time.Second,
+			IdleTimeout:       idleTimeoutSeconds * time.Second,
+		},
 		pokerService:  pokerService,
 		config:        config,
 		hub:           hub,

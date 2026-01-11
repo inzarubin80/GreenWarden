@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
+
 	"github.com/inzarubin80/Server/internal/app"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
@@ -33,6 +35,13 @@ func main() {
 		panic(err.Error())
 
 	}
+	// Настройка таймаутов для пула соединений
+	cfg.MaxConns = 25
+	cfg.MinConns = 5
+	cfg.MaxConnLifetime = 1 * time.Hour
+	cfg.MaxConnIdleTime = 30 * time.Minute
+	cfg.HealthCheckPeriod = 1 * time.Minute
+
 	dbConn, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		panic(err.Error())

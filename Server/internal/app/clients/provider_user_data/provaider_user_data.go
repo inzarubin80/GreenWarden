@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/inzarubin80/Server/internal/model"
 	"golang.org/x/oauth2"
 )
@@ -36,7 +39,21 @@ func (p *ProviderUserData) GetUserData(ctx context.Context, authorizationCode st
 	}
 
 	client := p.oauthConfig.Client(ctx, token)
-	response, err := client.Get(p.url)
+	// Настройка таймаутов для HTTP клиента
+	if client.Timeout == 0 {
+		client.Timeout = 60 * time.Second
+	}
+
+	// Создаем контекст с таймаутом для запроса
+	reqCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(reqCtx, "GET", p.url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
