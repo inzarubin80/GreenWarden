@@ -98,7 +98,7 @@ func NewConfig(opts Options) config {
 		ProviderUserData: providerUserData.NewProviderUserData("https://www.googleapis.com/oauth2/v2/userinfo", &oauth2.Config{
 			ClientID:     os.Getenv("CLIENT_ID_GOOGLE"),
 			ClientSecret: os.Getenv("CLIENT_SECRET_GOOGLE"),
-			RedirectURL:  os.Getenv("APP_ROOT") + "/auth/callback?provider=google",
+			RedirectURL:  "warden://auth/callback?provider=google",
 			Scopes:       []string{"openid", "email", "profile"},
 			Endpoint: oauth2.Endpoint{
 				AuthURL:  "https://accounts.google.com/o/oauth2/auth",
