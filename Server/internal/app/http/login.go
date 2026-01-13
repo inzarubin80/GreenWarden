@@ -85,11 +85,18 @@ func (h *LoginHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	scope := "login:info"
 	if cfg.Oauth2Config != nil && len(cfg.Oauth2Config.Scopes) > 0 {
-		scope = cfg.Oauth2Config.Scopes[0]
+		// Join all scopes with space separator
+		scope = ""
+		for i, s := range cfg.Oauth2Config.Scopes {
+			if i > 0 {
+				scope += " "
+			}
+			scope += s
+		}
 	}
 
-	// build Yandex authorize URL
-	base := "https://oauth.yandex.com/authorize"
+	// build OAuth authorize URL using provider's endpoint
+	base := cfg.Oauth2Config.Endpoint.AuthURL
 	q := make(url.Values)
 	q.Set("client_id", cfg.Oauth2Config.ClientID)
 	q.Set("response_type", "code")
