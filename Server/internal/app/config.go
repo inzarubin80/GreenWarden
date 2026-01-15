@@ -28,7 +28,7 @@ type (
 		postViolationRequestVote, postViolationRequestComplaint,
 		ping, vote, getUserEstimates, setVotingControlState, setUserName, getUser, setUserSettings, getLastSession, deletePoker,
 		getProfile, updateProfile, uploadProfileAvatar,
-		linkAuthProvider, unlinkAuthProvider string
+		linkAuthProvider, unlinkAuthProvider, oauthCallback string
 	}
 
 	sectrets struct {
@@ -60,11 +60,16 @@ type (
 
 func NewConfig(opts Options) config {
 	provaders := make(authinterface.MapProviderOauthConf)
+	// API_ROOT - адрес сервера для OAuth redirect URI
+	apiRoot := os.Getenv("API_ROOT")
+	if apiRoot == "" {
+		apiRoot = "https://api.green-warden.ru" // fallback для продакшена
+	}
 	provaders["yandex"] = &authinterface.ProviderOauthConf{
 		Oauth2Config: &oauth2.Config{
 			ClientID:     os.Getenv("CLIENT_ID_YANDEX"),
 			ClientSecret: os.Getenv("CLIENT_SECRET_YANDEX"),
-			RedirectURL:  "warden://auth/callback?provider=yandex",
+			RedirectURL:  apiRoot + "/api/auth/callback?provider=yandex",
 			Scopes:       []string{"login:info"},
 			Endpoint:     yandex.Endpoint,
 		},
@@ -74,7 +79,7 @@ func NewConfig(opts Options) config {
 		ProviderUserData: providerUserData.NewProviderUserData("https://login.yandex.ru/info?format=json", &oauth2.Config{
 			ClientID:     os.Getenv("CLIENT_ID_YANDEX"),
 			ClientSecret: os.Getenv("CLIENT_SECRET_YANDEX"),
-			RedirectURL:  "warden://auth/callback?provider=yandex",
+			RedirectURL:  apiRoot + "/api/auth/callback?provider=yandex",
 			Scopes:       []string{"login:info"},
 			Endpoint:     yandex.Endpoint,
 		}, "yandex"),
@@ -85,7 +90,7 @@ func NewConfig(opts Options) config {
 		Oauth2Config: &oauth2.Config{
 			ClientID:     os.Getenv("CLIENT_ID_GOOGLE"),
 			ClientSecret: os.Getenv("CLIENT_SECRET_GOOGLE"),
-			RedirectURL:  os.Getenv("APP_ROOT") + "/auth/callback?provider=google",
+			RedirectURL:  apiRoot + "/api/auth/callback?provider=google",
 			Scopes:       []string{"openid", "email", "profile"},
 			Endpoint: oauth2.Endpoint{
 				AuthURL:  "https://accounts.google.com/o/oauth2/auth",
@@ -98,7 +103,7 @@ func NewConfig(opts Options) config {
 		ProviderUserData: providerUserData.NewProviderUserData("https://www.googleapis.com/oauth2/v2/userinfo", &oauth2.Config{
 			ClientID:     os.Getenv("CLIENT_ID_GOOGLE"),
 			ClientSecret: os.Getenv("CLIENT_SECRET_GOOGLE"),
-			RedirectURL:  "warden://auth/callback?provider=google",
+			RedirectURL:  apiRoot + "/api/auth/callback?provider=google",
 			Scopes:       []string{"openid", "email", "profile"},
 			Endpoint: oauth2.Endpoint{
 				AuthURL:  "https://accounts.google.com/o/oauth2/auth",
@@ -163,9 +168,10 @@ func NewConfig(opts Options) config {
 			linkAuthProvider:   "POST /api/profile/auth-providers/{provider}/link",
 			unlinkAuthProvider: "POST /api/profile/auth-providers/{provider}/unlink",
 
-			refreshToken: "POST	/api/user/refresh",
-			session:      "GET		/api/user/session",
-			logOut:       "GET		/api/user/logout",
+			refreshToken:  "POST	/api/user/refresh",
+			session:       "GET		/api/user/session",
+			logOut:        "GET		/api/user/logout",
+			oauthCallback: "GET /api/auth/callback",
 
 			violationChatWS:            "GET /api/ws/violation-chat",
 			getViolationChat:           "GET /api/violations/{id}/chat",

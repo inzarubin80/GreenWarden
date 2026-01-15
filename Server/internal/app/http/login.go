@@ -17,21 +17,27 @@ import (
 	"github.com/inzarubin80/Server/internal/app/uhttp"
 )
 
+type StateData struct {
+	CodeVerifier string
+	Provider     string
+	Expiry       time.Time
+}
+
 type LoginHandler struct {
 	name              string
 	provadersConf     authinterface.MapProviderOauthConf
 	store             *sessions.CookieStore
-	loginStateStore   map[string]time.Time
-	loginStateStoreMu sync.Mutex
+	loginStateStore   map[string]StateData
+	loginStateStoreMu *sync.Mutex
 }
 
-func NewLoginHandler(provadersConf authinterface.MapProviderOauthConf, name string, store *sessions.CookieStore) *LoginHandler {
+func NewLoginHandler(provadersConf authinterface.MapProviderOauthConf, name string, store *sessions.CookieStore, loginStateStore map[string]StateData, loginStateStoreMu *sync.Mutex) *LoginHandler {
 	return &LoginHandler{
 		name:              name,
 		provadersConf:     provadersConf,
 		store:             store,
-		loginStateStore:   make(map[string]time.Time),
-		loginStateStoreMu: sync.Mutex{},
+		loginStateStore:   loginStateStore,
+		loginStateStoreMu: loginStateStoreMu,
 	}
 }
 
@@ -40,6 +46,7 @@ func (h *LoginHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Provider      string `json:"provider"`
 		CodeChallenge string `json:"code_challenge"`
+		CodeVerifier  string `json:"code_verifier"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -59,29 +66,32 @@ func (h *LoginHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	state := randomURLSafe(24)
 
-	// handle PKCE: prefer client-provided code_challenge; if not and pkce requested, generate verifier
-	var challenge string
-	// require client-provided code_challenge (mobile generates verifier)
+	// require client-provided code_challenge and code_verifier (mobile generates verifier)
 	if req.CodeChallenge == "" {
 		uhttp.SendErrorResponse(w, http.StatusBadRequest, "code_challenge required from client")
 		return
 	}
-	challenge = req.CodeChallenge
+	if req.CodeVerifier == "" {
+		uhttp.SendErrorResponse(w, http.StatusBadRequest, "code_verifier required from client")
+		return
+	}
+	challenge := req.CodeChallenge
 
-	// save state server-side (one-time, TTL 15 minutes) so we can validate it at exchange
+	// save state server-side with code_verifier (one-time, TTL 15 minutes)
 	h.loginStateStoreMu.Lock()
-	h.loginStateStore[state] = time.Now().Add(15 * time.Minute)
+	h.loginStateStore[state] = StateData{
+		CodeVerifier: req.CodeVerifier,
+		Provider:     req.Provider,
+		Expiry:       time.Now().Add(15 * time.Minute),
+	}
 	h.loginStateStoreMu.Unlock()
 
-	// Build auth_url explicitly to ensure redirect_uri matches mobile registration.
-	redirectURI := os.Getenv("OAUTH_REDIRECT_URI_MOBILE")
-	if redirectURI == "" {
-		if cfg.Oauth2Config != nil && cfg.Oauth2Config.RedirectURL != "" {
-			redirectURI = cfg.Oauth2Config.RedirectURL
-		} else {
-			redirectURI = fmt.Sprintf("warden://auth/callback?provider=%s", req.Provider)
-		}
+	// Build auth_url with server-side redirect URI
+	apiRoot := os.Getenv("API_ROOT")
+	if apiRoot == "" {
+		apiRoot = "https://api.green-warden.ru" // fallback для продакшена
 	}
+	redirectURI := fmt.Sprintf("%s/api/auth/callback?provider=%s", apiRoot, req.Provider)
 
 	scope := "login:info"
 	if cfg.Oauth2Config != nil && len(cfg.Oauth2Config.Scopes) > 0 {

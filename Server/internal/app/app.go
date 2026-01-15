@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/sessions"
@@ -41,15 +42,17 @@ type (
 	}
 
 	App struct {
-		mux           mux
-		server        server
-		pokerService  *service.PokerService
-		config        config
-		hub           *ws.Hub
-		oauthConfig   *oauth2.Config
-		store         *sessions.CookieStore
-		provadersConf authinterface.MapProviderOauthConf
-		uploader      *objectstorage.Uploader
+		mux               mux
+		server            server
+		pokerService      *service.PokerService
+		config            config
+		hub               *ws.Hub
+		oauthConfig       *oauth2.Config
+		store             *sessions.CookieStore
+		provadersConf     authinterface.MapProviderOauthConf
+		uploader          *objectstorage.Uploader
+		loginStateStore   map[string]appHttp.StateData
+		loginStateStoreMu sync.Mutex
 	}
 )
 
@@ -82,7 +85,8 @@ func (a *App) ListenAndServe() error {
 	a.mux.Handle(a.config.path.ping, appHttp.NewPingHandlerHandler(a.config.path.ping))
 	a.mux.Handle(a.config.path.session, appHttp.NewGetSessionHandler(a.store, a.config.path.session))
 	a.mux.Handle(a.config.path.getProviders, appHttp.NewProvadersHandler(a.provadersConf, a.config.path.getProviders))
-	a.mux.Handle(a.config.path.login, appHttp.NewLoginHandler(a.provadersConf, a.config.path.login, a.store))
+	a.mux.Handle(a.config.path.login, appHttp.NewLoginHandler(a.provadersConf, a.config.path.login, a.store, a.loginStateStore, &a.loginStateStoreMu))
+	a.mux.Handle(a.config.path.oauthCallback, appHttp.NewOAuthCallbackHandler(a.provadersConf, a.config.path.oauthCallback, a.store, a.loginStateStore, &a.loginStateStoreMu, a.pokerService))
 	a.mux.Handle(a.config.path.exchange, appHttp.NewExchangeHandler(a.store, a.config.path.exchange, a.pokerService))
 	a.mux.Handle(a.config.path.refreshToken, appHttp.NewRefreshTokenHandler(a.pokerService, a.config.path.refreshToken, a.store))
 
@@ -305,12 +309,14 @@ func NewApp(ctx context.Context, config config, dbConn *pgxpool.Pool) (*App, err
 			WriteTimeout:      writeTimeoutSeconds * time.Second,
 			IdleTimeout:       idleTimeoutSeconds * time.Second,
 		},
-		pokerService:  pokerService,
-		config:        config,
-		hub:           hub,
-		store:         store,
-		provadersConf: config.provadersConf,
-		uploader:      uploader,
+		pokerService:      pokerService,
+		config:            config,
+		hub:               hub,
+		store:             store,
+		provadersConf:     config.provadersConf,
+		uploader:          uploader,
+		loginStateStore:   make(map[string]appHttp.StateData),
+		loginStateStoreMu: sync.Mutex{},
 	}, nil
 
 }
