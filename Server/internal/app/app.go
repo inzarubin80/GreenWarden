@@ -86,7 +86,7 @@ func (a *App) ListenAndServe() error {
 	a.mux.Handle(a.config.path.session, appHttp.NewGetSessionHandler(a.store, a.config.path.session))
 	a.mux.Handle(a.config.path.getProviders, appHttp.NewProvadersHandler(a.provadersConf, a.config.path.getProviders))
 	a.mux.Handle(a.config.path.login, appHttp.NewLoginHandler(a.provadersConf, a.config.path.login, a.store, a.loginStateStore, &a.loginStateStoreMu))
-	a.mux.Handle(a.config.path.oauthCallback, appHttp.NewOAuthCallbackHandler(a.provadersConf, a.config.path.oauthCallback, a.store, a.loginStateStore, &a.loginStateStoreMu, a.pokerService))
+	a.mux.Handle(a.config.path.oauthCallback, appHttp.NewOAuthCallbackHandler(a.provadersConf, a.config.path.oauthCallback, a.store, a.loginStateStore, &a.loginStateStoreMu, a.pokerService, a.pokerService))
 	a.mux.Handle(a.config.path.exchange, appHttp.NewExchangeHandler(a.store, a.config.path.exchange, a.pokerService))
 	a.mux.Handle(a.config.path.refreshToken, appHttp.NewRefreshTokenHandler(a.pokerService, a.config.path.refreshToken, a.store))
 
@@ -196,7 +196,7 @@ func NewApp(ctx context.Context, config config, dbConn *pgxpool.Pool) (*App, err
 	repo := repository.NewPokerRepository(dbConn)
 
 	// Build token services
-	accessTokenService := tokenservice.NewtokenService([]byte(config.sectrets.accessTokenSecret), 1*time.Hour, model.Access_Token_Type)
+	accessTokenService := tokenservice.NewtokenService([]byte(config.sectrets.accessTokenSecret), 5*time.Second, model.Access_Token_Type)
 	refreshTokenService := tokenservice.NewtokenService([]byte(config.sectrets.refreshTokenSecret), 30*24*time.Hour, model.Refresh_Token_Type)
 
 	// Build providers user data map from config

@@ -20,6 +20,7 @@ import (
 type StateData struct {
 	CodeVerifier string
 	Provider     string
+	Action       string // "login" или "link", по умолчанию "login"
 	Expiry       time.Time
 }
 
@@ -47,6 +48,7 @@ func (h *LoginHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Provider      string `json:"provider"`
 		CodeChallenge string `json:"code_challenge"`
 		CodeVerifier  string `json:"code_verifier"`
+		Action        string `json:"action"` // опционально: "login" или "link", по умолчанию "login"
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -77,11 +79,22 @@ func (h *LoginHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	challenge := req.CodeChallenge
 
+	// Валидация и установка action
+	action := req.Action
+	if action == "" {
+		action = "login" // значение по умолчанию
+	}
+	if action != "login" && action != "link" {
+		uhttp.SendErrorResponse(w, http.StatusBadRequest, "action must be 'login' or 'link'")
+		return
+	}
+
 	// save state server-side with code_verifier (one-time, TTL 15 minutes)
 	h.loginStateStoreMu.Lock()
 	h.loginStateStore[state] = StateData{
 		CodeVerifier: req.CodeVerifier,
 		Provider:     req.Provider,
+		Action:       action,
 		Expiry:       time.Now().Add(15 * time.Minute),
 	}
 	h.loginStateStoreMu.Unlock()

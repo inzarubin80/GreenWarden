@@ -1,6 +1,7 @@
 package http
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -11,6 +12,7 @@ import (
 	authinterface "github.com/inzarubin80/Server/internal/app/authinterface"
 	"github.com/inzarubin80/Server/internal/app/defenitions"
 	"github.com/inzarubin80/Server/internal/model"
+	"github.com/inzarubin80/Server/internal/service"
 )
 
 type OAuthCallbackHandler struct {
@@ -20,6 +22,7 @@ type OAuthCallbackHandler struct {
 	loginStateStore   map[string]StateData
 	loginStateStoreMu *sync.Mutex
 	service           serviceLogin
+	linkService       linkAuthProviderService
 }
 
 func NewOAuthCallbackHandler(
@@ -29,6 +32,7 @@ func NewOAuthCallbackHandler(
 	loginStateStore map[string]StateData,
 	loginStateStoreMu *sync.Mutex,
 	service serviceLogin,
+	linkService linkAuthProviderService,
 ) *OAuthCallbackHandler {
 	return &OAuthCallbackHandler{
 		name:              name,
@@ -37,6 +41,7 @@ func NewOAuthCallbackHandler(
 		loginStateStore:   loginStateStore,
 		loginStateStoreMu: loginStateStoreMu,
 		service:           service,
+		linkService:       linkService,
 	}
 }
 
@@ -47,6 +52,10 @@ func (h *OAuthCallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	provider := r.URL.Query().Get("provider")
 	errorParam := r.URL.Query().Get("error")
 	errorDescription := r.URL.Query().Get("error_description")
+
+	// Определяем action из state (будет получен позже) или используем "login" по умолчанию
+	// Временно используем пустую строку, action будет определен после получения stateInfo
+	action := ""
 
 	// Если есть ошибка от провайдера
 	if errorParam != "" {
@@ -97,10 +106,70 @@ func (h *OAuthCallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 
 	codeVerifier := stateInfo.CodeVerifier
+	action = stateInfo.Action
+	if action == "" {
+		action = "login" // значение по умолчанию для обратной совместимости
+	}
 	delete(h.loginStateStore, state)
 	h.loginStateStoreMu.Unlock()
 
-	// Обмениваем код на токены
+	// Различаем логин и привязку провайдера
+	if action == "link" {
+		// Привязка провайдера - проверяем наличие активной сессии
+		session, err := h.store.Get(r, defenitions.SessionAuthenticationName)
+		if err != nil {
+			mobileRedirect := fmt.Sprintf("warden://auth/callback?action=link&provider=%s&error=unauthorized&error_description=%s",
+				provider, url.QueryEscape("session_not_found"))
+			http.Redirect(w, r, mobileRedirect, http.StatusFound)
+			return
+		}
+
+		userIDValue := session.Values[defenitions.UserID]
+		if userIDValue == nil {
+			mobileRedirect := fmt.Sprintf("warden://auth/callback?action=link&provider=%s&error=unauthorized&error_description=%s",
+				provider, url.QueryEscape("user_not_authenticated"))
+			http.Redirect(w, r, mobileRedirect, http.StatusFound)
+			return
+		}
+
+		userID, ok := userIDValue.(int64)
+		if !ok || userID == 0 {
+			mobileRedirect := fmt.Sprintf("warden://auth/callback?action=link&provider=%s&error=unauthorized&error_description=%s",
+				provider, url.QueryEscape("invalid_user_id"))
+			http.Redirect(w, r, mobileRedirect, http.StatusFound)
+			return
+		}
+
+		// Вызываем LinkAuthProvider
+		_, err = h.linkService.LinkAuthProvider(r.Context(), model.UserID(userID), provider, code, codeVerifier)
+		if err != nil {
+			// Маппинг ошибок привязки
+			errorCode := "link_failed"
+			errorMsg := err.Error()
+			
+			// Проверяем специфичные ошибки
+			if errors.Is(err, service.ErrProviderAlreadyLinkedToAnotherUser) {
+				errorCode = "provider_already_linked"
+			} else if errorMsg == "provider not found" {
+				errorCode = "provider_not_found"
+			} else if errorMsg == "exchange_failed" || errorMsg == "token exchange failed" {
+				errorCode = "exchange_failed"
+			}
+
+			mobileRedirect := fmt.Sprintf("warden://auth/callback?action=link&provider=%s&error=%s&error_description=%s",
+				provider, errorCode, url.QueryEscape(errorMsg))
+			http.Redirect(w, r, mobileRedirect, http.StatusFound)
+			return
+		}
+
+		// Успешная привязка
+		mobileRedirect := fmt.Sprintf("warden://auth/callback?action=link&provider=%s&success=true",
+			provider)
+		http.Redirect(w, r, mobileRedirect, http.StatusFound)
+		return
+	}
+
+	// Обычный логин (action == "login" или отсутствует)
 	var authData *model.AuthData
 	authData, err := h.service.Login(r.Context(), provider, code, codeVerifier)
 	if err != nil {
