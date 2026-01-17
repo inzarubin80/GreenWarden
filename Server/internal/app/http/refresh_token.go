@@ -1,8 +1,10 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/gorilla/sessions"
@@ -35,16 +37,39 @@ func (h *RefreshTokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	ctx := r.Context()
 
-	session, err := h.store.Get(r, defenitions.SessionAuthenticationName)
-	if err != nil {
-		http.Error(w, "Unauthorized not session", http.StatusUnauthorized)
-		return
+	var tokenString string
+	var useCookie bool
+
+	// 1. Попытаться получить refresh_token из JSON body
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err == nil && len(bodyBytes) > 0 {
+		// Восстанавливаем body для возможного повторного чтения
+		r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
+		var body struct {
+			RefreshToken string `json:"refresh_token"`
+		}
+		if err := json.Unmarshal(bodyBytes, &body); err == nil && body.RefreshToken != "" {
+			tokenString = body.RefreshToken
+			useCookie = false
+		}
 	}
 
-	tokenString, ok := session.Values[defenitions.Token].(string)
-	if !ok {
-		http.Error(w, "Unauthorized not Token", http.StatusUnauthorized)
-		return
+	// 2. Fallback на cookie/сессию (для web-клиентов)
+	if tokenString == "" {
+		session, err := h.store.Get(r, defenitions.SessionAuthenticationName)
+		if err != nil {
+			http.Error(w, "Unauthorized not session", http.StatusUnauthorized)
+			return
+		}
+
+		var ok bool
+		tokenString, ok = session.Values[defenitions.Token].(string)
+		if !ok {
+			http.Error(w, "Unauthorized not Token", http.StatusUnauthorized)
+			return
+		}
+		useCookie = true
 	}
 
 	authData, err := h.service.RefreshToken(ctx, tokenString)
@@ -53,13 +78,17 @@ func (h *RefreshTokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	session.Values[defenitions.Token] = string(authData.RefreshToken)
-
-
-	err = session.Save(r, w)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	// Обновляем cookie только если использовали cookie для получения токена
+	if useCookie {
+		session, err := h.store.Get(r, defenitions.SessionAuthenticationName)
+		if err == nil {
+			session.Values[defenitions.Token] = string(authData.RefreshToken)
+			err = session.Save(r, w)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
 	}
 
 	type response struct {

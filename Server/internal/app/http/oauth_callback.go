@@ -146,7 +146,7 @@ func (h *OAuthCallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			// Маппинг ошибок привязки
 			errorCode := "link_failed"
 			errorMsg := err.Error()
-			
+
 			// Проверяем специфичные ошибки
 			if errors.Is(err, service.ErrProviderAlreadyLinkedToAnotherUser) {
 				errorCode = "provider_already_linked"
@@ -188,7 +188,7 @@ func (h *OAuthCallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Перенаправляем на мобильное приложение с токенами
-	mobileRedirect := fmt.Sprintf("warden://auth/callback?provider=%s&access_token=%s&user_id=%d",
-		provider, url.QueryEscape(authData.AccessToken), authData.UserID)
+	mobileRedirect := fmt.Sprintf("warden://auth/callback?provider=%s&access_token=%s&refresh_token=%s&user_id=%d",
+		provider, url.QueryEscape(authData.AccessToken), url.QueryEscape(authData.RefreshToken), authData.UserID)
 	http.Redirect(w, r, mobileRedirect, http.StatusFound)
 }
