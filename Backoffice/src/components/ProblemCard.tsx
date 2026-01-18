@@ -39,6 +39,22 @@ export const ProblemCard: React.FC<ProblemCardProps> = ({ problem }) => {
           </span>
         )}
       </div>
+
+      <div className="problem-actions">
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() =>
+            window.open(
+              `/violations/${encodeURIComponent(problem.id)}`,
+              "_blank",
+              "noopener,noreferrer"
+            )
+          }
+        >
+          Открыть проблему
+        </button>
+      </div>
     </div>
   );
 };
