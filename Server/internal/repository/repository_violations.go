@@ -251,6 +251,9 @@ func (r *Repository) GetViolationByID(ctx context.Context, id model.ViolationID,
 	})
 	userVoteByRequest := make(map[string]string)
 
+	// Cache user lookups (name) to avoid N+1 queries for repeated authors.
+	userNameByID := make(map[int64]string)
+
 	// Aggregate likes/dislikes for all users per request.
 	if len(requestIDs) > 0 {
 		// Build query: SELECT request_id::text, likes, dislikes FROM violation_votes ...
@@ -385,12 +388,22 @@ func (r *Repository) GetViolationByID(ctx context.Context, id model.ViolationID,
 		if req.AuthorAvatarUrl != nil {
 			authorAvatar = *req.AuthorAvatarUrl
 		}
+		authorName := ""
+		if name, ok := userNameByID[req.CreatedByUserID]; ok {
+			authorName = name
+		} else {
+			if userRow, err := reposqlsc.GetUserByID(ctx, req.CreatedByUserID); err == nil && userRow != nil {
+				authorName = userRow.Name
+			}
+			userNameByID[req.CreatedByUserID] = authorName
+		}
 
 		violationRequests = append(violationRequests, model.ViolationRequest{
 			ID:              reqIDStr,
 			ViolationID:     model.ViolationID(violationUUID.String()),
 			Status:          model.ViolationRequestStatus(req.Status),
 			CreatedByUserID: model.UserID(req.CreatedByUserID),
+			AuthorName:      authorName,
 			Comment:         comment,
 			Photos:          requestPhotos,
 			CreatedAt:       reqCreatedAt,
@@ -617,12 +630,17 @@ func (r *Repository) GetOpenRequestByViolationID(ctx context.Context, violationI
 			if req.AuthorAvatarUrl != nil {
 				authorAvatar = *req.AuthorAvatarUrl
 			}
+			authorName := ""
+			if userRow, err := reposqlsc.GetUserByID(ctx, req.CreatedByUserID); err == nil && userRow != nil {
+				authorName = userRow.Name
+			}
 
 			return &model.ViolationRequest{
 				ID:              uuid.UUID(req.ID.Bytes).String(),
 				ViolationID:     violationID,
 				Status:          model.ViolationRequestStatus(req.Status),
 				CreatedByUserID: model.UserID(req.CreatedByUserID),
+				AuthorName:      authorName,
 				Comment:         comment,
 				Photos:          requestPhotos,
 				CreatedAt:       reqCreatedAt,
@@ -700,7 +718,9 @@ func (r *Repository) GetViolationRequestByID(ctx context.Context, requestID stri
 	// Fetch author's boosty_url and avatar_url directly (so single-request endpoint also returns them)
 	authorBoosty := ""
 	authorAvatar := ""
+	authorName := ""
 	if userRow, err := reposqlsc.GetUserByID(ctx, req.CreatedByUserID); err == nil {
+		authorName = userRow.Name
 		if userRow.BoostyUrl != nil {
 			authorBoosty = *userRow.BoostyUrl
 		}
@@ -714,6 +734,7 @@ func (r *Repository) GetViolationRequestByID(ctx context.Context, requestID stri
 		ViolationID:     model.ViolationID(violationUUID.String()),
 		Status:          model.ViolationRequestStatus(req.Status),
 		CreatedByUserID: model.UserID(req.CreatedByUserID),
+		AuthorName:      authorName,
 		Comment:         comment,
 		Photos:          requestPhotos,
 		CreatedAt:       reqCreatedAt,

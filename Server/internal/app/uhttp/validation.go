@@ -18,7 +18,7 @@ type ValidateParameter struct {
 func ValidatePatchStringParameter(r *http.Request, param string) (string, error) {
 	stringValue := r.PathValue(param)
 	if stringValue == "" {
-		return "", fmt.Errorf("%w: %s is missing", param, model.ErrInvalidParameter)
+		return "", fmt.Errorf("%w: %s is missing", model.ErrInvalidParameter, param)
 	}
 	return stringValue, nil
 }

@@ -121,6 +121,7 @@ func (h *GetViolationRequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 		ViolationID      model.ViolationID `json:"violation_id"`
 		Status           string            `json:"status"`
 		CreatedByUserID  model.UserID      `json:"created_by_user_id"`
+		AuthorName       string            `json:"author_name,omitempty"`
 		Comment          string            `json:"comment,omitempty"`
 		CreatedAt        time.Time         `json:"created_at"`
 		UpdatedAt        time.Time         `json:"updated_at"`
@@ -132,6 +133,7 @@ func (h *GetViolationRequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 		ViolationID:     request.ViolationID,
 		Status:          string(request.Status),
 		CreatedByUserID: request.CreatedByUserID,
+		AuthorName:      request.AuthorName,
 		Comment:         request.Comment,
 		CreatedAt:       request.CreatedAt,
 		UpdatedAt:       request.UpdatedAt,

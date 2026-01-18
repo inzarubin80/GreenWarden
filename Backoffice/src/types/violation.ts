@@ -20,6 +20,7 @@ export interface ViolationRequest {
   id: string;
   status: string;
   created_by_user_id: string;
+  author_name?: string;
   comment?: string;
   created_at: string;
   photos: ViolationPhoto[];

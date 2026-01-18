@@ -97,6 +97,7 @@ func (h *GetViolationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		ID              string          `json:"id"`
 		Status          string          `json:"status"`
 		CreatedByUserID model.UserID    `json:"created_by_user_id"`
+		AuthorName      string          `json:"author_name,omitempty"`
 		Comment         string          `json:"comment,omitempty"`
 		CreatedAt       time.Time       `json:"created_at"`
 		Photos          []PhotoResponse `json:"photos"`
@@ -144,6 +145,7 @@ func (h *GetViolationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 			ID:              req.ID,
 			Status:          string(req.Status),
 			CreatedByUserID: req.CreatedByUserID,
+			AuthorName:      req.AuthorName,
 			Comment:         req.Comment,
 			CreatedAt:       req.CreatedAt,
 			Photos:          requestPhotos,

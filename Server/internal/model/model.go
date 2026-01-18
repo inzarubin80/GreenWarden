@@ -66,6 +66,7 @@ type (
 		ViolationID     ViolationID             `json:"violation_id"`
 		Status          ViolationRequestStatus  `json:"status"`
 		CreatedByUserID UserID                  `json:"created_by_user_id"`
+		AuthorName      string                  `json:"author_name,omitempty"`
 		Comment         string                  `json:"comment,omitempty"`
 		Photos          []ViolationRequestPhoto `json:"photos,omitempty"`
 		CreatedAt       time.Time               `json:"created_at"`
@@ -174,6 +175,8 @@ type ViolationChatMessage struct {
 	ViolationID ViolationID `json:"violation_id"`
 	UserID      UserID      `json:"user_id"`
 	UserName    string      `json:"user_name,omitempty"`
+	UserAvatarURL string    `json:"user_avatar_url,omitempty"`
+	UserBoostyURL  string   `json:"user_boosty_url,omitempty"`
 	Text        string      `json:"text"`
 	IsSystem    bool        `json:"is_system"`
 	CreatedAt   time.Time   `json:"created_at"`

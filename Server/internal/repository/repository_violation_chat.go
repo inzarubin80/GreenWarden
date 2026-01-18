@@ -39,6 +39,22 @@ func (r *Repository) CreateViolationChatMessage(ctx context.Context, violationID
 		return nil, err
 	}
 
+	// Enrich with user info when possible (for UI convenience).
+	userName := ""
+	userAvatar := ""
+	userBoosty := ""
+	if !isSystem && userID != 0 {
+		if userRow, err := reposqlsc.GetUserByID(ctx, int64(userID)); err == nil && userRow != nil {
+			userName = userRow.Name
+			if userRow.AvatarUrl != nil {
+				userAvatar = *userRow.AvatarUrl
+			}
+			if userRow.BoostyUrl != nil {
+				userBoosty = *userRow.BoostyUrl
+			}
+		}
+	}
+
 	createdAt := time.Now()
 	if dbMsg.CreatedAt.Valid {
 		createdAt = dbMsg.CreatedAt.Time
@@ -53,6 +69,9 @@ func (r *Repository) CreateViolationChatMessage(ctx context.Context, violationID
 		ID:          uuid.UUID(dbMsg.ID.Bytes).String(),
 		ViolationID: model.ViolationID(uuid.UUID(dbMsg.ViolationID.Bytes).String()),
 		UserID:      model.UserID(dbMsg.UserID),
+		UserName:    userName,
+		UserAvatarURL: userAvatar,
+		UserBoostyURL:  userBoosty,
 		Text:        dbMsg.Text,
 		IsSystem:    dbMsg.IsSystem,
 		CreatedAt:   createdAt,
@@ -96,6 +115,14 @@ func (r *Repository) ListViolationChatMessages(ctx context.Context, violationID 
 		return nil, 0, err
 	}
 
+	// Cache user info to avoid N+1 for repeated users within the page.
+	type userInfo struct {
+		name   string
+		avatar string
+		boosty string
+	}
+	userInfoByID := make(map[int64]userInfo)
+
 	var out []*model.ViolationChatMessage
 	for _, m := range dbMsgs {
 		if m == nil {
@@ -110,10 +137,33 @@ func (r *Repository) ListViolationChatMessages(ctx context.Context, violationID 
 			t := m.UpdatedAt.Time
 			updatedAtPtr = &t
 		}
+
+		uName := ""
+		uAvatar := ""
+		uBoosty := ""
+		if !m.IsSystem && m.UserID != 0 {
+			if cached, ok := userInfoByID[m.UserID]; ok {
+				uName, uAvatar, uBoosty = cached.name, cached.avatar, cached.boosty
+			} else {
+				if userRow, err := reposqlsc.GetUserByID(ctx, m.UserID); err == nil && userRow != nil {
+					uName = userRow.Name
+					if userRow.AvatarUrl != nil {
+						uAvatar = *userRow.AvatarUrl
+					}
+					if userRow.BoostyUrl != nil {
+						uBoosty = *userRow.BoostyUrl
+					}
+				}
+				userInfoByID[m.UserID] = userInfo{name: uName, avatar: uAvatar, boosty: uBoosty}
+			}
+		}
 		out = append(out, &model.ViolationChatMessage{
 			ID:          uuid.UUID(m.ID.Bytes).String(),
 			ViolationID: model.ViolationID(uuid.UUID(m.ViolationID.Bytes).String()),
 			UserID:      model.UserID(m.UserID),
+			UserName:    uName,
+			UserAvatarURL: uAvatar,
+			UserBoostyURL:  uBoosty,
 			Text:        m.Text,
 			IsSystem:    m.IsSystem,
 			CreatedAt:   createdAt,

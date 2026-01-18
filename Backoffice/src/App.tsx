@@ -4,6 +4,7 @@ import { MapView } from "./components/MapView";
 import { ProblemCard } from "./components/ProblemCard";
 import { LandingPage } from "./components/LandingPage";
 import { UserProfilePage } from "./components/UserProfilePage";
+import { ViolationSharePage } from "./components/ViolationSharePage";
 import type { Problem } from "./types/problem";
 import { getViolationsByBbox, getViolationById } from "./api/violations";
 import type { Violation, ViolationDetails } from "./types/violation";
@@ -455,7 +456,9 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<IndexRoute />} />
-      <Route path="/violation/:id" element={<ViolationRoute />} />
+      {/* Backward compatibility + share links */}
+      <Route path="/violation/:id" element={<ViolationSharePage />} />
+      <Route path="/violations/:id" element={<ViolationSharePage />} />
       <Route path="/about" element={<LandingPage />} />
       <Route path="/user/:id" element={<UserProfilePage />} />
       <Route path="*" element={<NotFoundRoute />} />
