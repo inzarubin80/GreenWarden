@@ -17,12 +17,15 @@ body {
   /* Global eco background so it stays visible even if inner layout changes */
   background-color: #020617;
   background-image:
-    linear-gradient(to bottom, rgba(2, 6, 23, 0.72), rgba(2, 6, 23, 0.92)),
-    radial-gradient(circle at top left, rgba(34, 197, 94, 0.16), rgba(2, 6, 23, 0)),
+    /* less dark overlay so eco shapes are visible */
+    linear-gradient(to bottom, rgba(2, 6, 23, 0.55), rgba(2, 6, 23, 0.82)),
+    radial-gradient(circle at top left, rgba(34, 197, 94, 0.22), rgba(2, 6, 23, 0)),
+    radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.12), rgba(2, 6, 23, 0)),
     url("./assets/eco-bg.svg");
-  background-size: cover, cover, cover;
-  background-position: center, center, center;
-  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-size: cover, cover, cover, cover;
+  background-position: center, center, center, center;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat;
+  background-attachment: fixed;
 }
 
 .app-layout {
@@ -42,8 +45,8 @@ body {
   /* glass over eco background */
   background: linear-gradient(
     to bottom,
-    rgba(2, 6, 23, 0.55),
-    rgba(2, 6, 23, 0.78)
+    rgba(2, 6, 23, 0.45),
+    rgba(2, 6, 23, 0.7)
   );
   backdrop-filter: blur(10px);
   display: flex;
