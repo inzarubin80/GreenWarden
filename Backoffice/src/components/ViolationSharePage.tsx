@@ -18,6 +18,12 @@ type ParticipantBadges = {
   resolved?: boolean;
 };
 
+type PhotoItem = {
+  url: string;
+  thumbUrl?: string;
+  alt: string;
+};
+
 function formatDateTimeRu(value?: string) {
   if (!value) return "";
   const d = new Date(value);
@@ -64,6 +70,12 @@ export const ViolationSharePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [lightbox, setLightbox] = useState<{
+    title: string;
+    items: PhotoItem[];
+    index: number;
+  } | null>(null);
+
   useEffect(() => {
     if (!id) {
       setError("Неверная ссылка");
@@ -95,6 +107,42 @@ export const ViolationSharePage: React.FC = () => {
       cancelled = true;
     };
   }, [id]);
+
+  // Lock background scroll + keyboard navigation for lightbox
+  useEffect(() => {
+    if (!lightbox) return;
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setLightbox(null);
+        return;
+      }
+      if (e.key === "ArrowLeft") {
+        setLightbox((prev) => {
+          if (!prev) return prev;
+          const nextIndex = (prev.index - 1 + prev.items.length) % prev.items.length;
+          return { ...prev, index: nextIndex };
+        });
+        return;
+      }
+      if (e.key === "ArrowRight") {
+        setLightbox((prev) => {
+          if (!prev) return prev;
+          const nextIndex = (prev.index + 1) % prev.items.length;
+          return { ...prev, index: nextIndex };
+        });
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [lightbox]);
 
   const openRequest = useMemo(() => {
     if (!details) return null;
@@ -183,6 +231,39 @@ export const ViolationSharePage: React.FC = () => {
   const openHeroPhoto = openPhotos[0];
   const openMorePhotos = openPhotos.slice(1);
 
+  const problemPhotoItems = useMemo<PhotoItem[]>(() => {
+    const items: PhotoItem[] = [];
+    for (const p of openPhotos) {
+      if (!p.url) continue;
+      items.push({
+        url: p.url,
+        thumbUrl: p.thumb_url,
+        alt: "Фото проблемы"
+      });
+    }
+    return items;
+  }, [openPhotos]);
+
+  const resolutionPhotoItems = useMemo<PhotoItem[]>(() => {
+    const items: PhotoItem[] = [];
+    const photos = resolutionRequest?.photos ?? [];
+    for (const p of photos) {
+      if (!p.url) continue;
+      items.push({
+        url: p.url,
+        thumbUrl: p.thumb_url,
+        alt: "Фото решения"
+      });
+    }
+    return items;
+  }, [resolutionRequest]);
+
+  const openLightbox = (title: string, items: PhotoItem[], index: number) => {
+    if (!items.length) return;
+    const safeIndex = Math.min(Math.max(index, 0), items.length - 1);
+    setLightbox({ title, items, index: safeIndex });
+  };
+
   return (
     <div className="app-layout share-layout">
       <div className="map-column share-hero">
@@ -212,31 +293,31 @@ export const ViolationSharePage: React.FC = () => {
             <div className="share-hero-block-title">Фото проблемы</div>
             {openHeroPhoto ? (
               <>
-                <a
-                  href={openHeroPhoto.url}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
                   className="share-photo share-photo--hero"
+                  onClick={() => openLightbox("Фото проблемы", problemPhotoItems, 0)}
                 >
                   {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
                   <img
                     src={openHeroPhoto.thumb_url || openHeroPhoto.url}
                     alt="Фото проблемы"
                   />
-                </a>
+                </button>
                 {openMorePhotos.length > 0 && (
                   <div className="share-photos share-photos--strip">
-                    {openMorePhotos.map((p) => (
-                      <a
+                    {openMorePhotos.map((p, i) => (
+                      <button
+                        type="button"
                         key={p.id || p.url}
-                        href={p.url}
-                        target="_blank"
-                        rel="noreferrer"
                         className="share-photo"
+                        onClick={() =>
+                          openLightbox("Фото проблемы", problemPhotoItems, i + 1)
+                        }
                       >
                         {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
                         <img src={p.thumb_url || p.url} alt="Фото проблемы" />
-                      </a>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -383,17 +464,18 @@ export const ViolationSharePage: React.FC = () => {
                     )}
                     {resolutionRequest.photos?.length ? (
                       <div className="share-photos share-photos--small">
-                        {resolutionRequest.photos.map((p) => (
-                          <a
+                        {resolutionRequest.photos.map((p, i) => (
+                          <button
+                            type="button"
                             key={p.id || p.url}
-                            href={p.url}
-                            target="_blank"
-                            rel="noreferrer"
                             className="share-photo"
+                            onClick={() =>
+                              openLightbox("Фото решения", resolutionPhotoItems, i)
+                            }
                           >
                             {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
                             <img src={p.thumb_url || p.url} alt="Фото решения" />
-                          </a>
+                          </button>
                         ))}
                       </div>
                     ) : (
@@ -460,6 +542,82 @@ export const ViolationSharePage: React.FC = () => {
           </>
         )}
       </div>
+
+      {lightbox && lightbox.items.length > 0 && (
+        <div className="lightbox-overlay" onClick={() => setLightbox(null)}>
+          <div
+            className="lightbox"
+            role="dialog"
+            aria-modal="true"
+            aria-label={lightbox.title}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="lightbox-top">
+              <div className="lightbox-title">
+                {lightbox.title} · {lightbox.index + 1}/{lightbox.items.length}
+              </div>
+              <div className="lightbox-actions">
+                <a
+                  className="lightbox-link"
+                  href={lightbox.items[lightbox.index].url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Открыть
+                </a>
+                <button
+                  type="button"
+                  className="lightbox-close"
+                  onClick={() => setLightbox(null)}
+                  aria-label="Закрыть"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="lightbox-body">
+              <button
+                type="button"
+                className="lightbox-nav lightbox-nav--prev"
+                onClick={() =>
+                  setLightbox((prev) => {
+                    if (!prev) return prev;
+                    const nextIndex =
+                      (prev.index - 1 + prev.items.length) % prev.items.length;
+                    return { ...prev, index: nextIndex };
+                  })
+                }
+                aria-label="Предыдущее фото"
+              >
+                ‹
+              </button>
+
+              {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
+              <img
+                className="lightbox-image"
+                src={lightbox.items[lightbox.index].url}
+                alt={lightbox.items[lightbox.index].alt}
+              />
+
+              <button
+                type="button"
+                className="lightbox-nav lightbox-nav--next"
+                onClick={() =>
+                  setLightbox((prev) => {
+                    if (!prev) return prev;
+                    const nextIndex = (prev.index + 1) % prev.items.length;
+                    return { ...prev, index: nextIndex };
+                  })
+                }
+                aria-label="Следующее фото"
+              >
+                ›
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
