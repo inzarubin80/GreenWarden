@@ -13,6 +13,11 @@ type Participant = {
   boostyUrl?: string;
 };
 
+type ParticipantBadges = {
+  reported?: boolean;
+  resolved?: boolean;
+};
+
 function formatDateTimeRu(value?: string) {
   if (!value) return "";
   const d = new Date(value);
@@ -110,6 +115,17 @@ export const ViolationSharePage: React.FC = () => {
       .at(-1)!;
   }, [details]);
 
+  const participantBadges = useMemo<Map<string, ParticipantBadges>>(() => {
+    const m = new Map<string, ParticipantBadges>();
+    if (openRequest) {
+      m.set(openRequest.created_by_user_id, { ...(m.get(openRequest.created_by_user_id) ?? {}), reported: true });
+    }
+    if (resolutionRequest) {
+      m.set(resolutionRequest.created_by_user_id, { ...(m.get(resolutionRequest.created_by_user_id) ?? {}), resolved: true });
+    }
+    return m;
+  }, [openRequest, resolutionRequest]);
+
   const participants = useMemo<Participant[]>(() => {
     const byId = new Map<string, Participant>();
 
@@ -163,12 +179,16 @@ export const ViolationSharePage: React.FC = () => {
       : `Нарушение #${id}`;
   }, [details, id]);
 
+  const openPhotos = openRequest?.photos ?? [];
+  const openHeroPhoto = openPhotos[0];
+  const openMorePhotos = openPhotos.slice(1);
+
   return (
     <div className="app-layout share-layout">
       <div className="map-column share-hero">
         <div className="share-hero-inner">
           <div className="share-topbar">
-            <button type="button" className="status" onClick={() => navigate("/")}>
+            <button type="button" className="button-ghost" onClick={() => navigate("/")}>
               На карту
             </button>
             <Link className="button-secondary" to="/about">
@@ -188,24 +208,43 @@ export const ViolationSharePage: React.FC = () => {
             </div>
           )}
 
-          {openRequest?.photos?.length ? (
-            <div className="share-photos">
-              {openRequest.photos.map((p) => (
+          <div className="share-hero-block">
+            <div className="share-hero-block-title">Фото проблемы</div>
+            {openHeroPhoto ? (
+              <>
                 <a
-                  key={p.id || p.url}
-                  href={p.url}
+                  href={openHeroPhoto.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="share-photo"
+                  className="share-photo share-photo--hero"
                 >
                   {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
-                  <img src={p.thumb_url || p.url} alt="Фото проблемы" />
+                  <img
+                    src={openHeroPhoto.thumb_url || openHeroPhoto.url}
+                    alt="Фото проблемы"
+                  />
                 </a>
-              ))}
-            </div>
-          ) : (
-            <div className="status">Фото проблемы пока нет</div>
-          )}
+                {openMorePhotos.length > 0 && (
+                  <div className="share-photos share-photos--strip">
+                    {openMorePhotos.map((p) => (
+                      <a
+                        key={p.id || p.url}
+                        href={p.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="share-photo"
+                      >
+                        {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
+                        <img src={p.thumb_url || p.url} alt="Фото проблемы" />
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="status">Фото проблемы пока нет</div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -239,7 +278,19 @@ export const ViolationSharePage: React.FC = () => {
                       </div>
                       <div className="participant-info">
                         <div className="participant-name">{p.name}</div>
-                        <div className="participant-sub">ID: {p.userId}</div>
+                        <div className="participant-sub-row">
+                          <span className="participant-sub">ID: {p.userId}</span>
+                          {(() => {
+                            const b = participantBadges.get(p.userId);
+                            if (!b) return null;
+                            return (
+                              <span className="participant-badges">
+                                {b.reported && <span className="badge badge--report">Зафиксировал</span>}
+                                {b.resolved && <span className="badge badge--resolve">Решил</span>}
+                              </span>
+                            );
+                          })()}
+                        </div>
                       </div>
                     </Link>
                     {p.boostyUrl ? (
@@ -295,11 +346,17 @@ export const ViolationSharePage: React.FC = () => {
 
               <div className="timeline-card">
                 <div className="timeline-header">
-                  <div className="timeline-badge">
-                    {resolutionRequest
+                  {(() => {
+                    const label = resolutionRequest
                       ? getRequestStatusLabel(resolutionRequest.status)
-                      : "Не решено"}
-                  </div>
+                      : "Не решено";
+                    const cls = resolutionRequest
+                      ? resolutionRequest.status === "partially_closed"
+                        ? "timeline-badge timeline-badge--partial"
+                        : "timeline-badge"
+                      : "timeline-badge timeline-badge--neutral";
+                    return <div className={cls}>{label}</div>;
+                  })()}
                   <div className="timeline-date">
                     {resolutionRequest
                       ? formatDateTimeRu(resolutionRequest.created_at)
