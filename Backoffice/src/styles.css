@@ -14,13 +14,7 @@
 
 body {
   margin: 0;
-}
-
-.app-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(320px, 420px);
-  height: 100vh;
-  /* Eco background (image + overlays) with gradient fallback */
+  /* Global eco background so it stays visible even if inner layout changes */
   background-color: #020617;
   background-image:
     linear-gradient(to bottom, rgba(2, 6, 23, 0.72), rgba(2, 6, 23, 0.92)),
@@ -31,6 +25,13 @@ body {
   background-repeat: no-repeat, no-repeat, no-repeat;
 }
 
+.app-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(320px, 420px);
+  height: 100vh;
+  background: transparent;
+}
+
 .map-column {
   position: relative;
 }
@@ -38,7 +39,13 @@ body {
 .card-column {
   padding: 16px;
   border-left: 1px solid rgba(148, 163, 184, 0.3);
-  background: linear-gradient(to bottom, #020617, #020617ee);
+  /* glass over eco background */
+  background: linear-gradient(
+    to bottom,
+    rgba(2, 6, 23, 0.55),
+    rgba(2, 6, 23, 0.78)
+  );
+  backdrop-filter: blur(10px);
   display: flex;
   flex-direction: column;
   gap: 16px;
