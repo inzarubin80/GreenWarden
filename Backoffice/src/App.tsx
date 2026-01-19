@@ -9,7 +9,6 @@ import type { Problem } from "./types/problem";
 import { getViolationsByBbox, getViolationById } from "./api/violations";
 import type { Violation, ViolationDetails } from "./types/violation";
 import { getStatusLabel, getRequestStatusLabel } from "./types/status";
-import { GOOGLE_PLAY_URL } from "./config/mobile";
 
 const violationToProblem = (v: Violation): Problem => ({
   id: String(v.id),
@@ -399,23 +398,6 @@ const MapScreen: React.FC<MapScreenProps> = ({ violationId }) => {
               {isDetailMode ? "Нарушение не найдено" : "Проблемы не найдены"}
             </div>
           )}
-        </div>
-        <div className="landing-section">
-          <h2 className="landing-subtitle">Мобильное приложение</h2>
-          <p className="landing-text">
-            С помощью мобильного приложения жители и активисты могут фиксировать
-            проблемы на местности, а также отмечать их решение.
-          </p>
-          <div className="landing-buttons">
-            <a
-              className="button-secondary"
-              href={GOOGLE_PLAY_URL}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Скачать в Google Play
-            </a>
-          </div>
         </div>
       </div>
     </div>
