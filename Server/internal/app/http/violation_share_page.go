@@ -77,7 +77,8 @@ func (h *ViolationSharePageHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	}
 
 	canonicalURL := strings.TrimRight(shareBase, "/") + "/violations/" + id
-	mapURL := strings.TrimRight(shareBase, "/") + "/map/violation/" + id
+	// Always open the public SPA for the map view (even if this SSR page is served via api.*).
+	mapURL := "https://green-warden.ru/map/violation/" + id
 
 	openRequest, resolutionRequest := splitRequests(violation.Requests)
 
@@ -119,7 +120,6 @@ func (h *ViolationSharePageHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 
 		ViolationID:          id,
 		ViolationStatus:      string(violation.Status),
-		ConfirmationsCount:   violation.ConfirmationsCount,
 		TotalRequests:        totalRequests,
 		TotalPhotos:          totalPhotos,
 		ParticipantsCount:    len(participants),
@@ -198,7 +198,6 @@ type shareViewModel struct {
 	Coords             string
 	FixedAt            string
 	ResolvedAt         string
-	ConfirmationsCount int
 	TotalRequests      int
 	TotalPhotos        int
 	ParticipantsCount  int
@@ -551,7 +550,7 @@ var ogTemplate = template.Must(template.New("og").Parse(`<!doctype html>
       .avatar img{width:100%;height:100%;object-fit:cover}
       .badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
       .badge{border:1px solid rgba(34,197,94,.28);background:rgba(34,197,94,.12);color:rgba(15,23,42,.82);padding:6px 10px;border-radius:999px;font-size:12px}
-      .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:14px}
+      .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
       @media (max-width: 920px){.stats{grid-template-columns:repeat(2,1fr)}}
       .stat{border:1px solid var(--border);background:rgba(255,255,255,.70);border-radius:14px;padding:10px}
       .stat .k{font-size:12px;color:var(--muted2)}
@@ -597,7 +596,7 @@ var ogTemplate = template.Must(template.New("og").Parse(`<!doctype html>
             <div>
               <h1 class="title">{{ .Title }}</h1>
               <p class="sub">
-                Эта страница показывает путь проблемы от фиксации до решения — и вклад людей, которые сделали район чище.
+                Страница о загрязнении и его решении: кто зафиксировал проблему на природе, какие действия были сделаны, и кто помог довести дело до результата.
               </p>
               <div class="chips">
                 <div class="chip"><strong>Координаты</strong> {{ .Coords }}</div>
@@ -606,14 +605,12 @@ var ogTemplate = template.Must(template.New("og").Parse(`<!doctype html>
               </div>
               <div class="actions">
                 <a class="btn btnPrimary" href="{{ .MapURL }}">Перейти на карту</a>
-                <a class="btn btnSecondary" href="{{ .Canonical }}">Ссылка на страницу</a>
                 <button class="btn btnSmall" type="button" id="copyLinkBtn">Скопировать ссылку</button>
               </div>
             </div>
           </div>
 
           <div class="stats">
-            <div class="stat"><div class="k">Подтверждений</div><div class="v">{{ .ConfirmationsCount }}</div></div>
             <div class="stat"><div class="k">Действий</div><div class="v">{{ .TotalRequests }}</div></div>
             <div class="stat"><div class="k">Фото</div><div class="v">{{ .TotalPhotos }}</div></div>
             <div class="stat"><div class="k">Участников</div><div class="v">{{ .ParticipantsCount }}</div></div>
@@ -626,7 +623,7 @@ var ogTemplate = template.Must(template.New("og").Parse(`<!doctype html>
             <div class="section">
               <div class="sectionTitle">
                 <h2>Хронология</h2>
-                <p>что произошло и кто помог</p>
+                <p>что произошло и кто помог природе</p>
               </div>
               <div class="timeline">
                 <div class="tcard">
@@ -697,7 +694,7 @@ var ogTemplate = template.Must(template.New("og").Parse(`<!doctype html>
                 </div>
               {{- end }}
               {{- if not .BeforePhotos }}
-                <div class="gcap">Фото пока нет — но уже можно участвовать: подтвердить проблему, рассказать соседям, поддержать участников.</div>
+                <div class="gcap">Фото пока нет — но вы уже можете помочь: поделиться ссылкой, поддержать участников, подключиться к уборке или фиксации.</div>
               {{- end }}
             </div>
           </div>
@@ -706,10 +703,10 @@ var ogTemplate = template.Must(template.New("og").Parse(`<!doctype html>
             <div class="section">
               <div class="sectionTitle">
                 <h2>Участники</h2>
-                <p>люди, которые меняют город</p>
+                <p>люди, которые помогают природе</p>
               </div>
               <div class="gcap" style="margin-bottom:10px">
-                Если вы хотите, чтобы таких решений было больше — поддержите участников. Даже небольшой донат помогает.
+                Если вы хотите, чтобы уборок и решений было больше — поддержите участников. Донаты помогают покрывать дорогу, мешки, перчатки и вывоз.
               </div>
               <div class="participants">
                 {{- range .Participants }}
@@ -763,14 +760,14 @@ var ogTemplate = template.Must(template.New("og").Parse(`<!doctype html>
                 {{- end }}
               </div>
               {{- else }}
-              <div class="gcap">В чате пока тихо. Напишите участникам в приложении — обсуждение помогает довести проблему до решения.</div>
+              <div class="gcap">В чате пока тихо. Обсуждение в приложении помогает собрать людей и довести уборку до результата.</div>
               {{- end }}
             </div>
           </div>
         </div>
 
         <div class="footerNote">
-          Это публичная страница для прозрачности: виден вклад участников и ход работ. Делитесь ссылкой — так больше людей подключится.
+          Публичная страница для прозрачности: видно, кто зафиксировал загрязнение, какие действия были сделаны и кто помог. Делитесь ссылкой — так больше людей подключится к уборке и решению.
         </div>
       </div>
     </div>
@@ -798,7 +795,7 @@ var ogTemplate = template.Must(template.New("og").Parse(`<!doctype html>
         if (copyBtn) {
           copyBtn.addEventListener('click', function() {
             try {
-              navigator.clipboard.writeText(window.location.href);
+              navigator.clipboard.writeText({{ .Canonical | printf "%q" }});
               copyBtn.textContent = 'Скопировано';
               setTimeout(function(){ copyBtn.textContent = 'Скопировать ссылку'; }, 1600);
             } catch(e) {}
