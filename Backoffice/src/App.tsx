@@ -185,6 +185,16 @@ const MapScreen: React.FC<MapScreenProps> = ({ violationId }) => {
             <Link className="button-secondary" to="/about">
               О проекте и приложении
             </Link>
+            {isDetailMode && (
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => navigate("/")}
+                title="Вернуться к общей карте"
+              >
+                ← На карту
+              </button>
+            )}
           </div>
           {!isDetailMode && (
             <div className="filters-row">
@@ -204,15 +214,6 @@ const MapScreen: React.FC<MapScreenProps> = ({ violationId }) => {
                 </select>
               </label>
             </div>
-          )}
-          {isDetailMode && (
-            <button
-              type="button"
-              className="status"
-              onClick={() => navigate("/")}
-            >
-              На главную карту
-            </button>
           )}
           {loading && <div className="status">Загрузка нарушений...</div>}
           {error && <div className="status error">{error}</div>}
