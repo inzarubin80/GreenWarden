@@ -59,24 +59,13 @@ func (h *ViolationSharePageHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	shareBase := os.Getenv("PUBLIC_WEB_BASE")
-	if shareBase == "" {
-		// fallback: infer from request
-		scheme := "http"
-		if r.TLS != nil {
-			scheme = "https"
-		}
-		if v := r.Header.Get("X-Forwarded-Proto"); v != "" {
-			scheme = v
-		}
-		host := r.Host
-		if v := r.Header.Get("X-Forwarded-Host"); v != "" {
-			host = v
-		}
-		shareBase = scheme + "://" + host
+	// Canonical public URL must always be on the public web domain, not api.*,
+	// otherwise social previews and "copy link" will point to API.
+	publicWebBase := os.Getenv("PUBLIC_WEB_BASE")
+	if publicWebBase == "" {
+		publicWebBase = "https://green-warden.ru"
 	}
-
-	canonicalURL := strings.TrimRight(shareBase, "/") + "/violations/" + id
+	canonicalURL := strings.TrimRight(publicWebBase, "/") + "/violations/" + id
 	// Always open the public SPA for the map view (even if this SSR page is served via api.*).
 	mapURL := "https://green-warden.ru/map/violation/" + id
 
