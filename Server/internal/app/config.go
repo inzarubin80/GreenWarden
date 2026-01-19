@@ -29,6 +29,8 @@ type (
 		ping, vote, getUserEstimates, setVotingControlState, setUserName, getUser, setUserSettings, getLastSession, deletePoker,
 		getProfile, updateProfile, uploadProfileAvatar,
 		linkAuthProvider, unlinkAuthProvider, oauthCallback string
+		// Public share pages (for OG tags)
+		violationSharePage string
 	}
 
 	sectrets struct {
@@ -184,6 +186,9 @@ func NewConfig(opts Options) config {
 			postViolationComplaint:        "POST /api/violations/{id}/complaints",
 			postViolationRequestVote:      "POST /api/violation-requests/{id}/vote",
 			postViolationRequestComplaint: "POST /api/violation-requests/{id}/complaints",
+
+			// Public share page for social previews (VK/OG)
+			violationSharePage: "GET /violations/{id}",
 
 			getLastSession: fmt.Sprintf("GET	/api/sessions/{%s}/{%s}", defenitions.Page, defenitions.PageSize),
 		},

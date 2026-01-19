@@ -136,6 +136,10 @@ func (a *App) ListenAndServe() error {
 	a.mux.Handle(a.config.path.getViolationRequest, appHttp.NewGetViolationRequestHandler(a.config.path.getViolationRequest, a.pokerService, a.uploader))
 	a.mux.Handle(a.config.path.createViolation, middleware.NewAuthMiddleware(appHttp.NewCreateViolationHandler(a.store, a.config.path.createViolation, a.pokerService, a.uploader, a.config.sectrets.maxPhotosPerViolation), a.store, a.pokerService))
 	a.mux.Handle(a.config.path.closeViolationRequest, middleware.NewAuthMiddleware(appHttp.NewCloseViolationRequestHandler(a.store, a.config.path.closeViolationRequest, a.pokerService, a.uploader, a.config.sectrets.maxPhotosPerViolation), a.store, a.pokerService))
+
+	// Public share page with OG tags (for VK/social previews)
+	a.mux.Handle(a.config.path.violationSharePage, appHttp.NewViolationSharePageHandler(a.config.path.violationSharePage, a.pokerService, a.uploader))
+
 	a.mux.Handle(a.config.path.violationChatWS, appHttp.NewViolationChatWSHandler(a.config.path.violationChatWS, a.pokerService, a.hub))
 	a.mux.Handle(a.config.path.getViolationChat, appHttp.NewGetViolationChatHandler(a.config.path.getViolationChat, a.pokerService))
 	a.mux.Handle(a.config.path.postViolationChatMessage, middleware.NewAuthMiddleware(appHttp.NewPostViolationChatMessageHandler(a.config.path.postViolationChatMessage, a.pokerService), a.store, a.pokerService))
