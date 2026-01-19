@@ -16,6 +16,15 @@ func (f fakeViolationSvc) GetViolationByID(ctx context.Context, id model.Violati
   return f.v, nil
 }
 
+func (f fakeViolationSvc) GetViolationChat(ctx context.Context, violationID model.ViolationID, page, pageSize int) (*model.PaginatedViolationChatMessages, error) {
+  return &model.PaginatedViolationChatMessages{
+    Items:    []*model.ViolationChatMessage{},
+    Page:     page,
+    PageSize: pageSize,
+    Total:    0,
+  }, nil
+}
+
 type fakeUploader struct{ url string }
 
 func (u fakeUploader) GetPublicURL(ctx context.Context, storedURL string, expiry any) (string, error) { // not used

@@ -39,9 +39,9 @@ export const MapView: React.FC<MapViewProps> = ({
       }}
     >
       <Map
-        defaultState={{
+        state={{
           center,
-          zoom: 10
+          zoom: problems.length === 1 ? 14 : 10
         }}
         width="100%"
         height="100%"

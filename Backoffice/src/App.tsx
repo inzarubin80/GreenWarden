@@ -456,6 +456,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<IndexRoute />} />
+      {/* Map focus route for SSR share page CTA */}
+      <Route path="/map/violation/:id" element={<ViolationRoute />} />
       {/* Backward compatibility + share links */}
       <Route path="/violation/:id" element={<ViolationSharePage />} />
       <Route path="/violations/:id" element={<ViolationSharePage />} />
